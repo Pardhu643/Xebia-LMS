@@ -87,7 +87,7 @@ export default function DashboardPage() {
           icon={Award}
           trend="100% score"
           description="Syllabus segments fully completed"
-          gradientScheme="emerald"
+          gradientScheme="primary"
         />
         <MetricCard
           title="Hours spent learning"
@@ -95,7 +95,7 @@ export default function DashboardPage() {
           icon={Clock}
           trend="+2.4 hrs vs last week"
           description="Active learning duration telemetry"
-          gradientScheme="orange"
+          gradientScheme="primary"
         />
       </div>
 

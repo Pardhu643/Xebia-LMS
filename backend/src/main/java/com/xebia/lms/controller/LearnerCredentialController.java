@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@RestController
-@RequestMapping("/iam/learner-credentials")
+// @RestController
+// @RequestMapping("/iam/learner-credentials")
 public class LearnerCredentialController {
 
     private final LearnerCredentialService service;

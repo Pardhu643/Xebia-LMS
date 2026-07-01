@@ -64,6 +64,11 @@ export default function CourseDetailPage() {
   const { data: course, isLoading: courseLoading, error: courseError } = useGetCourseBySlug(slug);
   const { data: modules, isLoading: modulesLoading } = useGetModules(course?.id);
 
+  // Dynamically resolve the first module and its submodules to determine the start lesson
+  const sortedModules = modules ? [...modules].sort((a, b) => a.order - b.order) : [];
+  const firstModuleId = sortedModules.length > 0 ? sortedModules[0].id : null;
+  const { data: firstSubmodules } = useGetSubmodules(firstModuleId);
+
   if (courseLoading) {
     return (
       <DashboardLayout>
@@ -90,8 +95,9 @@ export default function CourseDetailPage() {
     );
   }
 
-  // Define fallback first lesson redirect for start learning CTA
-  const firstLessonSlug = "app-router-directory"; 
+  // Determine the first lesson slug dynamically with a safe fallback
+  const sortedSubmodules = firstSubmodules ? [...firstSubmodules].sort((a, b) => a.order - b.order) : [];
+  const firstLessonSlug = sortedSubmodules.length > 0 ? sortedSubmodules[0].slug : "app-router-directory"; 
 
   return (
     <DashboardLayout>

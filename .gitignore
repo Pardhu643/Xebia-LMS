@@ -36,3 +36,7 @@ yarn-error.log*
 .vercel
 *.tsbuildinfo
 next-env.d.ts
+
+# java / maven backend
+backend/target/
+backend/data/

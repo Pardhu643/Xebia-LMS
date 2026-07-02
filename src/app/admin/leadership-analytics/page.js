@@ -19,25 +19,23 @@ import {
   GraduationCap,
   Calendar,
   Layers,
-  ChevronRight,
-  TrendingDown,
-  ThumbsUp,
   Percent,
   Search,
   RefreshCw,
   Layout,
-  Play,
-  Heart,
   Target,
   LineChart,
-  Grid,
-  Zap,
-  Info,
+  ThumbsUp,
   Shield,
-  FileCode
+  FileCode,
+  ArrowRight,
+  TrendingDown,
+  Activity,
+  Flame,
+  AwardIcon
 } from "lucide-react";
 
-// List of available filter values
+// List of filter options
 const YEARS = ["All", "2026", "2025", "2024"];
 const QUARTERS = ["All", "Q1", "Q2", "Q3", "Q4"];
 const HALF_YEARS = ["All", "H1", "H2"];
@@ -73,8 +71,9 @@ export default function LeadershipAnalyticsPage() {
   });
 
   const [activeTab, setActiveTab] = useState("executive");
+  const [trendView, setTrendView] = useState("QoQ"); // QoQ, MoM, YoY tabs for trends
 
-  // Reset all filters
+  // Reset filters
   const resetFilters = () => {
     setFilters({
       year: "All",
@@ -94,17 +93,13 @@ export default function LeadershipAnalyticsPage() {
     });
   };
 
-  // Helper to generate a deterministic factor based on active filters.
+  // Helper factor for scaling numbers based on filters
   const filterFactor = useMemo(() => {
     let factor = 1.0;
-    
-    // Time filter reductions
     if (filters.year !== "All") factor *= 0.6;
     if (filters.quarter !== "All") factor *= 0.3;
     if (filters.halfYear !== "All") factor *= 0.52;
     if (filters.month !== "All") factor *= 0.12;
-
-    // Org filter reductions
     if (filters.region !== "All") factor *= 0.45;
     if (filters.location !== "All") factor *= 0.32;
     if (filters.bu !== "All") factor *= 0.38;
@@ -113,16 +108,10 @@ export default function LeadershipAnalyticsPage() {
     if (filters.practice !== "All") factor *= 0.22;
     if (filters.grade !== "All") factor *= 0.26;
     if (filters.employee) factor *= 0.02;
-
-    // Date range multiplier
-    if (filters.startDate && filters.endDate) {
-      factor *= 0.4;
-    }
-
+    if (filters.startDate && filters.endDate) factor *= 0.4;
     return Math.max(factor, 0.01);
   }, [filters]);
 
-  // Deterministic seed for charts & numbers based on filters
   const dataSeed = useMemo(() => {
     let sum = 0;
     const filterString = Object.values(filters).join("");
@@ -138,29 +127,28 @@ export default function LeadershipAnalyticsPage() {
     return Math.floor(rnd * (max - min + 1) + min);
   };
 
-  // Dynamic calculated KPI metrics based on selection
+  // Computed metrics aligning with PDF requirements
   const kpis = useMemo(() => {
     const totalEmployees = Math.max(Math.round(2500 * (filters.region !== "All" ? 0.35 : 1) * (filters.dept !== "All" ? 0.25 : 1)), 50);
-    const trainedFactor = 0.65 + (pseudoRandom(1, 15, 1) / 100);
     const nominated = Math.round(totalEmployees * (0.8 + (pseudoRandom(1, 10, 2) / 100)));
-    const trained = Math.round(nominated * trainedFactor);
+    const trained = Math.round(nominated * (0.65 + (pseudoRandom(1, 15, 1) / 100)));
     const coveragePercent = ((trained / totalEmployees) * 100).toFixed(1);
-    
+
     const sessions = Math.round(120 * filterFactor + pseudoRandom(1, 10, 3));
     const attendees = Math.round(trained * 1.4);
     const nominations = Math.round(nominated * 1.25);
-    const avgSessionHrs = 2.5;
-    const learningHours = Math.round(attendees * avgSessionHrs);
+    const learningHours = Math.round(attendees * 2.5);
+    const avgHoursPerSession = (learningHours / sessions).toFixed(1);
 
     const certsCompleted = Math.round(350 * filterFactor + pseudoRandom(1, 30, 4));
     const certGrowth = (12.4 + (pseudoRandom(-5, 10, 5) / 10)).toFixed(1);
-    
-    // AI Section
+
     const aiTrained = Math.round(trained * 0.42);
     const aiCerts = Math.round(certsCompleted * 0.38);
     const aiLearningHours = Math.round(learningHours * 0.45);
+    const aiSessions = Math.round(sessions * 0.4);
+    const aiAttendancePct = Math.round(86 + pseudoRandom(-4, 10, 9));
 
-    // Feedback
     const avgFeedback = (4.5 + (pseudoRandom(-3, 4, 6) / 10)).toFixed(2);
     const satScore = Math.round(85 + pseudoRandom(-5, 10, 7));
     const recommendPercent = Math.round(88 + pseudoRandom(-4, 10, 8));
@@ -174,11 +162,14 @@ export default function LeadershipAnalyticsPage() {
       attendees,
       nominations,
       learningHours,
+      avgHoursPerSession,
       certsCompleted,
       certGrowth,
       aiTrained,
       aiCerts,
       aiLearningHours,
+      aiSessions,
+      aiAttendancePct,
       avgFeedback,
       satScore,
       recommendPercent
@@ -216,7 +207,6 @@ export default function LeadershipAnalyticsPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3.5 text-xs">
-            {/* Year filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Year-wise</label>
               <select
@@ -228,7 +218,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Quarter filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Quarter-wise</label>
               <select
@@ -240,7 +229,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Half-Yearly filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Half-Yearly</label>
               <select
@@ -252,7 +240,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Monthly filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Monthly</label>
               <select
@@ -264,7 +251,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Region filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Region</label>
               <select
@@ -276,7 +262,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Location filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Location</label>
               <select
@@ -288,7 +273,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* BU filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Business Unit</label>
               <select
@@ -300,7 +284,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Dept filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Department</label>
               <select
@@ -312,7 +295,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Project filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Project</label>
               <select
@@ -324,7 +306,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Practice filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Practice</label>
               <select
@@ -336,7 +317,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Grade filter */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Employee Grade</label>
               <select
@@ -348,7 +328,6 @@ export default function LeadershipAnalyticsPage() {
               </select>
             </div>
 
-            {/* Search Individual */}
             <div className="space-y-1">
               <label className="font-bold text-foreground">Individual Employee</label>
               <div className="relative">
@@ -363,7 +342,6 @@ export default function LeadershipAnalyticsPage() {
               </div>
             </div>
 
-            {/* Start Date filter */}
             <div className="space-y-1 col-span-1 md:col-span-2 lg:col-span-3">
               <label className="font-bold text-foreground">Custom Date Range (Start Date)</label>
               <input
@@ -374,7 +352,6 @@ export default function LeadershipAnalyticsPage() {
               />
             </div>
 
-            {/* End Date filter */}
             <div className="space-y-1 col-span-1 md:col-span-2 lg:col-span-3">
               <label className="font-bold text-foreground">Custom Date Range (End Date)</label>
               <input
@@ -388,7 +365,7 @@ export default function LeadershipAnalyticsPage() {
         </CardBody>
       </Card>
 
-      {/* TABS SELECTOR SYSTEM */}
+      {/* STICKY TABS MENU */}
       <div className="flex border-b border-border overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-gray-200">
         {[
           { id: "executive", label: "Executive Summary" },
@@ -398,7 +375,7 @@ export default function LeadershipAnalyticsPage() {
           { id: "ai", label: "AI Transformation" },
           { id: "certs", label: "Zoho Certifications" },
           { id: "flagship", label: "Flagship Programs" },
-          { id: "trends", label: "Trends & effectiveness" },
+          { id: "trends", label: "Trends & Effectiveness" },
           { id: "champions", label: "Champions & Investment" },
           { id: "freshers", label: "Campus Journey" },
           { id: "future", label: "Future Roadmap" }
@@ -417,31 +394,32 @@ export default function LeadershipAnalyticsPage() {
         ))}
       </div>
 
-      {/* ACTIVE SECTION CONTAINER */}
+      {/* DASHBOARD RENDER AREA */}
       <div className="space-y-6">
         {/* T1: EXECUTIVE SUMMARY */}
         {activeTab === "executive" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Learning Reach */}
               <MetricCard
                 title="Total Employees"
                 value={kpis.totalEmployees.toLocaleString()}
                 icon={Users}
-                description="Total enterprise squad headcount"
+                description="Total enterprise headcount"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Employees Nominated"
                 value={kpis.nominated.toLocaleString()}
                 icon={Award}
-                description="Nominated for skills tracks"
+                description="Nominated for skill programs"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Employees Trained"
                 value={kpis.trained.toLocaleString()}
                 icon={CheckCircle2}
-                description="Successfully trained & assessed"
+                description="Completed learning paths"
                 gradientScheme="primary"
               />
               <div className="bg-white border border-border/80 shadow-xs rounded-2xl p-5 flex flex-col justify-between">
@@ -460,8 +438,9 @@ export default function LeadershipAnalyticsPage() {
                 </span>
               </div>
 
+              {/* Learning Delivery */}
               <MetricCard
-                title="Sessions Conducted"
+                title="Total Sessions Conducted"
                 value={kpis.sessions.toString()}
                 icon={Calendar}
                 description="Live expert sessions conducted"
@@ -471,37 +450,53 @@ export default function LeadershipAnalyticsPage() {
                 title="Total Attendees"
                 value={kpis.attendees.toLocaleString()}
                 icon={Users}
-                description="Sum total of session attendances"
+                description="Sum total of attendance instances"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Total Nominations"
                 value={kpis.nominations.toLocaleString()}
                 icon={Award}
-                description="Nomination registrations processed"
+                description="Registrations processed"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Total Learning Hours"
                 value={kpis.learningHours.toLocaleString()}
                 icon={Clock}
-                description="Total compiled learning exposure"
+                description="Total learning exposure logged"
+                gradientScheme="primary"
+              />
+              <MetricCard
+                title="Average Hours per Session"
+                value={`${kpis.avgHoursPerSession} hrs`}
+                icon={Clock}
+                description="Avg session duration telemetry"
                 gradientScheme="primary"
               />
 
+              {/* Certification Summary */}
               <MetricCard
-                title="Certifications Completed"
+                title="Total Certifications Completed"
                 value={kpis.certsCompleted.toString()}
                 icon={Award}
-                trend={`+${kpis.certGrowth}% YoY`}
-                description="Completed certification badges"
+                description="Total completed cert badges"
                 gradientScheme="primary"
               />
+              <MetricCard
+                title="Certification Growth %"
+                value={`+${kpis.certGrowth}%`}
+                icon={TrendingUp}
+                description="YoY certification completed growth"
+                gradientScheme="primary"
+              />
+
+              {/* AI Readiness Summary */}
               <MetricCard
                 title="Employees Trained in AI"
                 value={kpis.aiTrained.toString()}
                 icon={Sparkles}
-                description="Completed AI/GenAI capability paths"
+                description="Trained in AI Pillars"
                 gradientScheme="primary"
               />
               <MetricCard
@@ -519,11 +514,12 @@ export default function LeadershipAnalyticsPage() {
                 gradientScheme="primary"
               />
 
+              {/* Training Effectiveness */}
               <MetricCard
                 title="Average Feedback Rating"
                 value={`${kpis.avgFeedback} / 5.0`}
                 icon={ThumbsUp}
-                description="Session attendee evaluation score"
+                description="Attendee evaluation score average"
                 gradientScheme="primary"
               />
               <MetricCard
@@ -547,10 +543,11 @@ export default function LeadershipAnalyticsPage() {
         {/* T2: LEARNING COVERAGE & PARTICIPATION */}
         {activeTab === "coverage" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn">
+            {/* Breakout list */}
             <Card>
               <CardBody className="p-6 space-y-4">
                 <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                  Learning Coverage Metrics Breakdown
+                  Learning Coverage Metrics Breakout
                 </span>
                 <div className="space-y-4.5">
                   {[
@@ -567,7 +564,7 @@ export default function LeadershipAnalyticsPage() {
                           <span>{item.label}</span>
                           <span>{pct}%</span>
                         </div>
-                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
@@ -577,22 +574,23 @@ export default function LeadershipAnalyticsPage() {
               </CardBody>
             </Card>
 
+            {/* Coverage Heatmap */}
             <Card>
               <CardBody className="p-6 space-y-4">
                 <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                  Regional Learning Coverage Heatmap
+                  Coverage Heatmap
                 </span>
                 <div className="grid grid-cols-3 gap-3 pt-2">
                   {[
                     { name: "Gurugram", pct: 88, class: "bg-emerald-600 text-white" },
                     { name: "Bengaluru", pct: 92, class: "bg-emerald-700 text-white" },
                     { name: "Noida", pct: 75, class: "bg-emerald-500 text-white" },
-                    { name: "Atlanta (USA)", pct: 64, class: "bg-amber-500 text-white" },
-                    { name: "London (UK)", pct: 58, class: "bg-amber-500 text-white" },
+                    { name: "Atlanta", pct: 64, class: "bg-amber-500 text-white" },
+                    { name: "London", pct: 58, class: "bg-amber-500 text-white" },
                     { name: "Amsterdam", pct: 82, class: "bg-emerald-600 text-white" },
-                    { name: "Dubai (ME)", pct: 45, class: "bg-rose-500 text-white" },
+                    { name: "Dubai", pct: 45, class: "bg-rose-500 text-white" },
                     { name: "Pune", pct: 79, class: "bg-emerald-500 text-white" },
-                    { name: "Sales Team", pct: 38, class: "bg-rose-600 text-white" }
+                    { name: "Sales US", pct: 38, class: "bg-rose-600 text-white" }
                   ].map((cell, idx) => (
                     <div key={idx} className={`p-4 rounded-xl flex flex-col justify-between h-24 ${cell.class} shadow-xs`}>
                       <span className="text-[10px] font-bold uppercase tracking-wider">{cell.name}</span>
@@ -603,12 +601,34 @@ export default function LeadershipAnalyticsPage() {
               </CardBody>
             </Card>
 
+            {/* Region Chart & Project wise */}
             <Card className="lg:col-span-2">
               <CardBody className="p-6 space-y-4">
                 <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                  Project-wise Participation & Quarterly trend
+                  Learning Coverage & Participation Visualizations
                 </span>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
+                  {/* Region wise bar chart */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-foreground">Region-wise Coverage Chart</h4>
+                    <div className="h-44 flex items-end justify-between gap-4 border-b border-border pb-2 px-2">
+                      {[92, 64, 58, 82, 45].map((val, idx) => (
+                        <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
+                          <div className="text-[9px] font-bold text-accent font-mono">{val}%</div>
+                          <div
+                            className="w-full bg-accent hover:bg-primary transition-all rounded-t-md"
+                            style={{ height: `${(val / 100) * 120}px` }}
+                          />
+                          <span className="text-[9px] text-text-muted font-bold truncate max-w-full">
+                            {["India", "USA", "UK", "Netherlands", "M.East"][idx]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Project wise bar chart */}
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-foreground">Project-wise Participation Chart</h4>
                     <div className="h-44 flex items-end justify-between gap-4 border-b border-border pb-2 px-2">
@@ -627,6 +647,7 @@ export default function LeadershipAnalyticsPage() {
                     </div>
                   </div>
 
+                  {/* Quarterly line chart */}
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-foreground">Quarterly Participation Trend</h4>
                     <div className="relative h-44 border-b border-l border-border px-2">
@@ -659,6 +680,7 @@ export default function LeadershipAnalyticsPage() {
         {/* T3: LEARNING HOURS ANALYTICS */}
         {activeTab === "hours" && (
           <div className="space-y-6 animate-fadeIn">
+            {/* Hours KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
                 title="Total Learning Hours"
@@ -671,69 +693,84 @@ export default function LeadershipAnalyticsPage() {
                 title="Avg Hours per Employee"
                 value={(kpis.learningHours / kpis.totalEmployees).toFixed(1)}
                 icon={Clock}
-                description="Learning hours per headcount"
+                description="Hours per employee headcount"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Avg Hours per Active Learner"
                 value={(kpis.learningHours / kpis.trained).toFixed(1)}
                 icon={Clock}
-                description="Hours per successfully trained"
+                description="Hours per active trained learner"
                 gradientScheme="primary"
               />
               <MetricCard
-                title="Top Region Avg Hours"
+                title="Highest Avg Hours by Region"
                 value="28.4 hrs"
                 icon={MapPin}
-                description="Bengaluru learning center average"
+                description="Top region learning average"
                 gradientScheme="primary"
               />
             </div>
 
+            {/* Top 10 lists */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Top Projects & Regions */}
               <Card className="lg:col-span-2">
-                <CardBody className="p-6 space-y-5">
+                <CardBody className="p-6 space-y-6">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                    Learning hours additional insights
+                    Learning Hours Additional Insights (Top 10 lists)
                   </span>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Top 10 regions */}
                     <div className="space-y-2.5">
                       <h4 className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
                         <MapPin className="w-4 h-4 text-accent" />
-                        <span>Top Learning-Focused Regions</span>
+                        <span>Top 10 Learning-Focused Regions (Average Hours)</span>
                       </h4>
                       <div className="divide-y divide-border text-xs">
                         {[
-                          { name: "Bengaluru", hours: "4,820", users: "185" },
-                          { name: "Gurugram", hours: "3,950", users: "162" },
-                          { name: "Noida", hours: "2,480", users: "102" },
-                          { name: "Amsterdam", hours: "1,850", users: "42" },
-                          { name: "Atlanta", hours: "1,240", users: "32" }
+                          { name: "Bengaluru (India)", hours: "28.4 hrs" },
+                          { name: "Gurugram (India)", hours: "26.2 hrs" },
+                          { name: "Amsterdam (NL)", hours: "24.5 hrs" },
+                          { name: "Noida (India)", hours: "22.8 hrs" },
+                          { name: "Atlanta (USA)", hours: "20.5 hrs" },
+                          { name: "London (UK)", hours: "18.2 hrs" },
+                          { name: "Dubai (ME)", hours: "15.4 hrs" },
+                          { name: "Singapore (APAC)", hours: "14.8 hrs" },
+                          { name: "Pune (India)", hours: "14.2 hrs" },
+                          { name: "Riyadh (KSA)", hours: "12.5 hrs" }
                         ].map((item, idx) => (
                           <div key={idx} className="flex justify-between py-2 items-center">
                             <span className="font-bold">{idx + 1}. {item.name}</span>
-                            <span className="text-text-muted font-mono">{item.hours} hrs ({item.users} learners)</span>
+                            <span className="text-text-muted font-mono">{item.hours}</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
+                    {/* Top 10 Projects */}
                     <div className="space-y-2.5">
                       <h4 className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
                         <Briefcase className="w-4 h-4 text-accent" />
-                        <span>Top Learning-Focused Projects</span>
+                        <span>Top 10 Learning-Focused Projects (Average Hours)</span>
                       </h4>
                       <div className="divide-y divide-border text-xs">
                         {[
-                          { name: "Project Alpha", hours: "1,980" },
-                          { name: "Project Orion", hours: "1,620" },
-                          { name: "Project Polaris", hours: "1,150" },
-                          { name: "Project Sirius", hours: "850" },
-                          { name: "Project Zenith", hours: "780" }
+                          { name: "Project Alpha", hours: "48.2 hrs" },
+                          { name: "Project Orion", hours: "45.0 hrs" },
+                          { name: "Project Sirius", hours: "42.5 hrs" },
+                          { name: "Project Polaris", hours: "38.8 hrs" },
+                          { name: "Project Zenith", hours: "35.2 hrs" },
+                          { name: "Project Delta", hours: "32.0 hrs" },
+                          { name: "Project Apex", hours: "28.5 hrs" },
+                          { name: "Project Titan", hours: "26.4 hrs" },
+                          { name: "Project Helix", hours: "24.8 hrs" },
+                          { name: "Project Omega", hours: "22.5 hrs" }
                         ].map((item, idx) => (
                           <div key={idx} className="flex justify-between py-2 items-center">
                             <span className="font-bold">{idx + 1}. {item.name}</span>
-                            <span className="text-text-muted font-mono">{item.hours} hrs</span>
+                            <span className="text-text-muted font-mono">{item.hours}</span>
                           </div>
                         ))}
                       </div>
@@ -742,25 +779,31 @@ export default function LeadershipAnalyticsPage() {
                 </CardBody>
               </Card>
 
+              {/* Top 10 active learners */}
               <Card>
                 <CardBody className="p-6 space-y-4">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                    Individual Learning Tracker
+                    Top 10 Active Learners
                   </span>
-                  <div className="space-y-4.5 pt-2">
+                  <div className="divide-y divide-border text-xs">
                     {[
-                      { name: "Priyanka Sharma", hours: 48, progress: 95, track: "Next.js Architecture" },
-                      { name: "Amit Patel", hours: 42, progress: 80, track: "Kubernetes Deployments" },
-                      { name: "Rachel Green", hours: 38, progress: 65, track: "Spring Boot Enterprise" },
-                      { name: "John Doe", hours: 35, progress: 100, track: "Compliance Basics" }
+                      { name: "Priyanka Sharma", hours: 48, progress: 95, track: "Next.js" },
+                      { name: "Amit Patel", hours: 42, progress: 80, track: "Kubernetes" },
+                      { name: "Rachel Green", hours: 38, progress: 65, track: "Spring Boot" },
+                      { name: "John Doe", hours: 35, progress: 100, track: "Compliance" },
+                      { name: "Alex Jones", hours: 32, progress: 75, track: "AWS Cloud" },
+                      { name: "Siddharth Verma", hours: 30, progress: 92, track: "Databricks" },
+                      { name: "Emily Brown", hours: 28, progress: 88, track: "Generative AI" },
+                      { name: "Michael Green", hours: 26, progress: 82, track: "GCP Basics" },
+                      { name: "Lucas Black", hours: 24, progress: 60, track: "Snowflake" },
+                      { name: "Sarah Smith", hours: 22, progress: 70, track: "Agile Scrum" }
                     ].map((item, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="font-bold text-foreground">{item.name}</span>
-                          <span className="text-text-muted font-mono">{item.hours} hrs</span>
+                      <div key={idx} className="py-2.5 space-y-1">
+                        <div className="flex justify-between font-semibold">
+                          <span>{idx + 1}. {item.name}</span>
+                          <span className="text-text-muted font-mono">{item.hours} hrs ({item.track})</span>
                         </div>
-                        <p className="text-[10px] text-text-muted font-semibold">{item.track}</p>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div className="h-full bg-accent" style={{ width: `${item.progress}%` }} />
                         </div>
                       </div>
@@ -842,9 +885,7 @@ export default function LeadershipAnalyticsPage() {
                         <pillar.icon className="w-5 h-5" />
                       </div>
                     </div>
-                    
                     <p className="text-xs text-foreground/80 leading-relaxed">{pillar.desc}</p>
-                    
                     <div className="bg-gray-50 border border-border/50 rounded-xl p-3.5 space-y-2.5">
                       <span className="text-[10px] text-text-muted uppercase font-black tracking-wider block">
                         Included Tracks
@@ -852,7 +893,6 @@ export default function LeadershipAnalyticsPage() {
                       <p className="text-[11px] font-bold text-foreground leading-snug">{pillar.examples}</p>
                     </div>
                   </CardBody>
-                  
                   <div className="bg-gray-50/50 border-t border-border px-6 py-3.5 flex justify-between text-[10px] text-text-muted font-bold uppercase tracking-wider">
                     <span>{pillar.hours.toLocaleString()} hours</span>
                     <span>{pillar.certs} certs</span>
@@ -866,58 +906,60 @@ export default function LeadershipAnalyticsPage() {
         {/* T5: AI TRANSFORMATION DASHBOARD */}
         {activeTab === "ai" && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* AI Readiness Index */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               <MetricCard
-                title="AI Trained headcount"
+                title="Employees Trained on AI"
                 value={kpis.aiTrained.toString()}
                 icon={Sparkles}
-                description="Trained in AI Pillars"
+                description="Completed AI Capability paths"
                 gradientScheme="primary"
               />
               <MetricCard
-                title="AI Certifications"
+                title="Employees Certified on AI"
                 value={kpis.aiCerts.toString()}
                 icon={Award}
-                description="AI capability credentials"
+                description="AI credentials achieved"
                 gradientScheme="primary"
               />
               <MetricCard
-                title="AI Learning hours"
+                title="AI Learning Hours"
                 value={kpis.aiLearningHours.toLocaleString()}
                 icon={Clock}
-                description="Total AI course hours logged"
+                description="Total AI study hours logged"
                 gradientScheme="primary"
               />
-              <div className="bg-white border border-border/80 shadow-xs rounded-2xl p-5 flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-center text-text-muted text-[10px] font-bold uppercase tracking-wider">
-                    <span>AI Maturity Score</span>
-                    <Sparkles className="w-4 h-4 text-accent" />
-                  </div>
-                  <span className="text-2xl font-black text-foreground mt-2 block">76 / 100</span>
-                  <div className="h-2 bg-gray-150 rounded-full overflow-hidden mt-3.5">
-                    <div className="h-full bg-accent rounded-full animate-pulse" style={{ width: "76%" }} />
-                  </div>
-                </div>
-                <span className="text-[10px] text-text-muted font-bold mt-3 block">
-                  Weighted: completions + certs + adoption
-                </span>
-              </div>
+              <MetricCard
+                title="AI Sessions Conducted"
+                value={kpis.aiSessions.toString()}
+                icon={Calendar}
+                description="AI courses & workshops run"
+                gradientScheme="primary"
+              />
+              <MetricCard
+                title="AI Training Attendance %"
+                value={`${kpis.aiAttendancePct}%`}
+                icon={Percent}
+                description="Average attendee sync rate"
+                gradientScheme="primary"
+              />
             </div>
 
+            {/* AI Funnel & tools */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Funnel */}
               <Card className="lg:col-span-2">
                 <CardBody className="p-6 space-y-4">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                    AI Capability Adoption Funnel
+                    AI Adoption Funnel
                   </span>
                   <div className="space-y-3 pt-3">
                     {[
-                      { name: "Registered for AI Programs", count: 980, width: "w-full", color: "bg-primary" },
-                      { name: "Attended Sessions", count: 750, width: "w-11/12", color: "bg-primary/90" },
+                      { name: "Registered", count: 980, width: "w-full", color: "bg-primary" },
+                      { name: "Attended", count: 750, width: "w-11/12", color: "bg-primary/95" },
                       { name: "Completed Learning", count: 480, width: "w-8/12", color: "bg-primary/80" },
-                      { name: "Certified on AI", count: 180, width: "w-5/12", color: "bg-primary/70" },
-                      { name: "Using AI Tools (Daily)", count: 95, width: "w-3/12", color: "bg-accent" }
+                      { name: "Certified", count: 180, width: "w-5/12", color: "bg-primary/65" },
+                      { name: "Using AI Tools", count: 95, width: "w-3/12", color: "bg-accent" }
                     ].map((step, idx) => (
                       <div key={idx} className="flex items-center gap-4 text-xs">
                         <span className="w-40 font-bold text-foreground text-right">{step.name}</span>
@@ -933,6 +975,7 @@ export default function LeadershipAnalyticsPage() {
                 </CardBody>
               </Card>
 
+              {/* Tools adoption & AI Champions */}
               <Card>
                 <CardBody className="p-6 space-y-5">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
@@ -943,7 +986,7 @@ export default function LeadershipAnalyticsPage() {
                       { name: "Copilot Users", count: 640 },
                       { name: "Kiro Users", count: 420 },
                       { name: "Claude Users", count: 185 },
-                      { name: "Other Platforms", count: 92 }
+                      { name: "Other Platform Users", count: 92 }
                     ].map((tool, idx) => (
                       <div key={idx} className="flex justify-between items-center text-xs border-b border-border/50 pb-2 last:border-0 last:pb-0">
                         <span className="font-semibold">{tool.name}</span>
@@ -959,7 +1002,7 @@ export default function LeadershipAnalyticsPage() {
                     <div className="grid grid-cols-3 gap-2 text-center text-xs">
                       <div className="bg-white border border-border p-2 rounded-lg">
                         <span className="block font-black text-primary">24</span>
-                        <span className="text-[9px] font-bold text-text-muted">Power Users</span>
+                        <span className="text-[9px] font-bold text-text-muted">AI Power Users</span>
                       </div>
                       <div className="bg-white border border-border p-2 rounded-lg">
                         <span className="block font-black text-accent">12</span>
@@ -974,18 +1017,67 @@ export default function LeadershipAnalyticsPage() {
                 </CardBody>
               </Card>
             </div>
+
+            {/* Heatmap & Maturity Score */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Heatmap */}
+              <Card className="lg:col-span-2">
+                <CardBody className="p-6 space-y-4">
+                  <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
+                    AI Capability Heatmap (Readiness Scores)
+                  </span>
+                  <div className="grid grid-cols-4 gap-3 text-center text-xs">
+                    {[
+                      { type: "Region", name: "India Center", val: 92, class: "bg-emerald-500 text-white" },
+                      { type: "Region", name: "USA/UK Center", val: 64, class: "bg-amber-500 text-white" },
+                      { type: "Department", name: "Data Science", val: 96, class: "bg-emerald-600 text-white" },
+                      { type: "Department", name: "Consulting", val: 58, class: "bg-amber-500 text-white" },
+                      { type: "Project", name: "Project Alpha", val: 85, class: "bg-emerald-500 text-white" },
+                      { type: "Project", name: "Project Polaris", val: 54, class: "bg-amber-500 text-white" },
+                      { type: "Practice", name: "Generative AI", val: 98, class: "bg-emerald-750 text-white" },
+                      { type: "Practice", name: "Salesforce Practice", val: 42, class: "bg-rose-500 text-white" }
+                    ].map((cell, idx) => (
+                      <div key={idx} className={`p-3 rounded-xl flex flex-col justify-between h-20 ${cell.class}`}>
+                        <span className="text-[8px] font-black uppercase tracking-wider block opacity-80">{cell.type}</span>
+                        <span className="text-[10px] font-bold leading-tight block">{cell.name}</span>
+                        <span className="text-base font-black block mt-0.5">{cell.val}/100</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardBody>
+              </Card>
+
+              {/* Maturity Score info */}
+              <Card>
+                <CardBody className="p-6 space-y-4">
+                  <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
+                    AI Maturity Scorecard
+                  </span>
+                  
+                  <div className="bg-gradient-to-br from-primary-dark via-primary to-secondary text-white p-5 rounded-2xl space-y-3 relative overflow-hidden">
+                    <div className="absolute right-0 bottom-0 top-0 w-1/3 bg-radial from-accent/20 to-transparent blur-2xl" />
+                    <span className="text-[10px] uppercase font-black tracking-wider block text-white/70">Maturity Rating</span>
+                    <h3 className="text-3xl font-black">76 / 100</h3>
+                    <p className="text-[10px] text-white/90 leading-relaxed">
+                      Calculated from a weighted index combining training completion (40%), certification (30%), daily tool adoption (20%), and learning hours (10%).
+                    </p>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
           </div>
         )}
 
         {/* T6: ZOHO CERTIFICATIONS */}
         {activeTab === "certs" && (
           <div className="space-y-6 animate-fadeIn">
+            {/* Certifications KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
                 title="Total Certifications"
                 value={kpis.certsCompleted.toString()}
                 icon={Award}
-                description="Zoho database certifications completed"
+                description="Synced with Zoho database"
                 gradientScheme="primary"
               />
               <MetricCard
@@ -1011,7 +1103,9 @@ export default function LeadershipAnalyticsPage() {
               />
             </div>
 
+            {/* Cert Funnel & Technologies */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Funnel */}
               <Card className="lg:col-span-2">
                 <CardBody className="p-6 space-y-4">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
@@ -1035,10 +1129,11 @@ export default function LeadershipAnalyticsPage() {
                 </CardBody>
               </Card>
 
+              {/* Technologies */}
               <Card>
                 <CardBody className="p-6 space-y-4">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                    High-demand Certifications
+                    High Demand Certifications
                   </span>
                   <div className="space-y-3">
                     {[
@@ -1063,6 +1158,71 @@ export default function LeadershipAnalyticsPage() {
                 </CardBody>
               </Card>
             </div>
+
+            {/* Certifications by Region, Project, Employee Grade */}
+            <Card>
+              <CardBody className="p-6 space-y-4">
+                <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
+                  Zoho Certification Breakdowns
+                </span>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+                  {/* Region */}
+                  <div className="space-y-2">
+                    <h4 className="font-extrabold text-foreground">Certifications by Region</h4>
+                    <div className="divide-y divide-border/60">
+                      {[
+                        { name: "India Center", certs: 185 },
+                        { name: "Netherlands Center", certs: 64 },
+                        { name: "USA Center", certs: 58 },
+                        { name: "UK Center", certs: 43 }
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex justify-between py-2">
+                          <span className="font-semibold">{item.name}</span>
+                          <span className="font-mono text-text-muted">{item.certs} completed</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Project */}
+                  <div className="space-y-2">
+                    <h4 className="font-extrabold text-foreground">Certifications by Project</h4>
+                    <div className="divide-y divide-border/60">
+                      {[
+                        { name: "Project Alpha", certs: 42 },
+                        { name: "Project Orion", certs: 38 },
+                        { name: "Project Sirius", certs: 24 },
+                        { name: "Project Polaris", certs: 18 }
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex justify-between py-2">
+                          <span className="font-semibold">{item.name}</span>
+                          <span className="font-mono text-text-muted">{item.certs} completed</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Employee Grade */}
+                  <div className="space-y-2">
+                    <h4 className="font-extrabold text-foreground">Certifications by Employee Grade</h4>
+                    <div className="divide-y divide-border/60">
+                      {[
+                        { name: "Consultants", certs: 142 },
+                        { name: "Senior Consultants", certs: 108 },
+                        { name: "Tech Leads", certs: 64 },
+                        { name: "Principal Architects", certs: 36 }
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex justify-between py-2">
+                          <span className="font-semibold">{item.name}</span>
+                          <span className="font-mono text-text-muted">{item.certs} completed</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
           </div>
         )}
 
@@ -1100,7 +1260,6 @@ export default function LeadershipAnalyticsPage() {
                       </div>
                     </div>
                   </CardBody>
-                  
                   <div className="bg-gray-50/50 border-t border-border px-5 py-3 flex justify-between text-[10px] text-text-muted font-bold uppercase tracking-wider">
                     <span>Feedback: {prog.rating} / 5.0</span>
                     <span>Certs: {prog.certs}</span>
@@ -1114,70 +1273,148 @@ export default function LeadershipAnalyticsPage() {
         {/* T8: TRENDS & EFFECTIVENESS */}
         {activeTab === "trends" && (
           <div className="space-y-6 animate-fadeIn">
+            {/* Trends Control Tabs */}
+            <div className="flex gap-2">
+              {["MoM", "QoQ", "YoY"].map((view) => (
+                <button
+                  key={view}
+                  onClick={() => setTrendView(view)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    trendView === view
+                      ? "bg-primary text-white"
+                      : "bg-gray-100 hover:bg-gray-200 text-text-muted"
+                  }`}
+                >
+                  {view} View
+                </button>
+              ))}
+            </div>
+
+            {/* Trend dashboard grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Trends table */}
               <Card className="lg:col-span-2">
                 <CardBody className="p-6 space-y-4">
                   <div className="flex items-center justify-between pb-2 border-b border-border">
                     <span className="text-xs font-black text-primary uppercase tracking-wider">
-                      Learning Growth Trends
+                      Learning Growth Trends ({trendView} analysis)
                     </span>
-                    <span className="text-[10px] text-text-muted font-bold">YoY Comparison</span>
+                    <span className="text-[10px] text-text-muted font-bold">Dynamic comparison metrics</span>
                   </div>
                   <div className="divide-y divide-border text-xs">
                     {[
-                      { metric: "Sessions Conducted", current: kpis.sessions, prev: Math.round(kpis.sessions * 0.85), growth: "+15%" },
-                      { metric: "Employees Trained", current: kpis.trained, prev: Math.round(kpis.trained * 0.88), growth: "+12%" },
-                      { metric: "Learning Hours Logged", current: kpis.learningHours, prev: Math.round(kpis.learningHours * 0.82), growth: "+18%" },
+                      { metric: "Sessions Conducted", current: kpis.sessions, prev: Math.round(kpis.sessions * 0.85), growth: "+15.0%" },
+                      { metric: "Employees Trained", current: kpis.trained, prev: Math.round(kpis.trained * 0.88), growth: "+12.0%" },
+                      { metric: "Learning Hours Logged", current: kpis.learningHours, prev: Math.round(kpis.learningHours * 0.82), growth: "+18.2%" },
                       { metric: "Certifications Achieved", current: kpis.certsCompleted, prev: Math.round(kpis.certsCompleted * 0.9), growth: `+${kpis.certGrowth}%` },
-                      { metric: "AI Learning Growth", current: kpis.aiLearningHours, prev: Math.round(kpis.aiLearningHours * 0.65), growth: "+35%" }
-                    ].map((row, idx) => (
-                      <div key={idx} className="flex justify-between py-3 items-center">
-                        <span className="font-bold">{row.metric}</span>
-                        <div className="flex items-center gap-6 font-semibold">
-                          <span className="text-text-muted font-mono">{row.prev.toLocaleString()} (Prev)</span>
-                          <span className="text-foreground font-mono">{row.current.toLocaleString()} (Curr)</span>
-                          <span className="text-emerald-600 font-extrabold flex items-center gap-0.5">
-                            <TrendingUp className="w-3.5 h-3.5" />
-                            <span>{row.growth}</span>
-                          </span>
+                      { metric: "AI Learning Growth", current: kpis.aiLearningHours, prev: Math.round(kpis.aiLearningHours * 0.65), growth: "+35.4%" }
+                    ].map((row, idx) => {
+                      // Adjust based on MoM/YoY tabs
+                      let multiplier = trendView === "MoM" ? 0.35 : trendView === "YoY" ? 2.8 : 1.0;
+                      let currVal = Math.round(row.current * multiplier);
+                      let prevVal = Math.round(row.prev * multiplier);
+                      return (
+                        <div key={idx} className="flex justify-between py-3 items-center">
+                          <span className="font-bold">{row.metric}</span>
+                          <div className="flex items-center gap-6 font-semibold">
+                            <span className="text-text-muted font-mono">{prevVal.toLocaleString()} (Prev)</span>
+                            <span className="text-foreground font-mono">{currVal.toLocaleString()} (Curr)</span>
+                            <span className="text-emerald-600 font-extrabold flex items-center gap-0.5">
+                              <TrendingUp className="w-3.5 h-3.5" />
+                              <span>{row.growth}</span>
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardBody>
               </Card>
 
+              {/* Growth Indicators & Effectiveness */}
               <Card>
                 <CardBody className="p-6 space-y-4">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                    Training Effectiveness Ratings
+                    Learning Growth Indicators
                   </span>
-                  <div className="space-y-4">
-                    <div className="flex justify-between text-xs items-center">
-                      <span className="font-semibold text-text-muted">Feedback Rating Average</span>
-                      <span className="text-lg font-black text-primary font-mono">{kpis.avgFeedback} / 5.0</span>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-gray-50 p-3 rounded-xl border border-border/80">
+                      <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">Training Growth</span>
+                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+12.0%</span>
                     </div>
-                    <div className="flex justify-between text-xs items-center">
-                      <span className="font-semibold text-text-muted">Trainer Competency Score</span>
-                      <span className="text-lg font-black text-foreground font-mono">4.8 / 5.0</span>
+                    <div className="bg-gray-50 p-3 rounded-xl border border-border/80">
+                      <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">Learner Growth</span>
+                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+14.2%</span>
                     </div>
-                    <div className="flex justify-between text-xs items-center">
-                      <span className="font-semibold text-text-muted">CSAT Index</span>
-                      <span className="text-lg font-black text-foreground font-mono">{kpis.satScore}%</span>
+                    <div className="bg-gray-50 p-3 rounded-xl border border-border/80">
+                      <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">Certification Growth</span>
+                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+{kpis.certGrowth}%</span>
                     </div>
-                    <div className="flex justify-between text-xs items-center">
-                      <span className="font-semibold text-text-muted">Recommendation Net %</span>
-                      <span className="text-lg font-black text-foreground font-mono">{kpis.recommendPercent}%</span>
+                    <div className="bg-gray-50 p-3 rounded-xl border border-border/80">
+                      <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">AI Adoption Growth</span>
+                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+35.4%</span>
                     </div>
                   </div>
+                </CardBody>
+              </Card>
+            </div>
 
-                  <div className="bg-gray-50 border border-border/50 rounded-xl p-3.5 space-y-2.5">
-                    <span className="text-[10px] text-text-muted uppercase font-black tracking-wider block">
-                      Best Performing Category
-                    </span>
-                    <p className="text-xs font-bold text-foreground leading-snug">
-                      🏆 AI & Generative AI Pillars (Feedback avg: 4.88)
-                    </p>
+            {/* Training Effectiveness Evaluation */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-2">
+                <CardBody className="p-6 space-y-4">
+                  <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
+                    Training Effectiveness & CSAT Index
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center text-xs">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
+                      <span className="text-text-muted font-bold block">Feedback Score</span>
+                      <span className="text-xl font-black text-primary font-mono mt-1.5 block">{kpis.avgFeedback} / 5.0</span>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
+                      <span className="text-text-muted font-bold block">Trainer Rating</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">4.8 / 5.0</span>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
+                      <span className="text-text-muted font-bold block">Session Rating</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">4.7 / 5.0</span>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
+                      <span className="text-text-muted font-bold block">Recommendation %</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">{kpis.recommendPercent}%</span>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
+                      <span className="text-text-muted font-bold block">Attendance %</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">88%</span>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
+                      <span className="text-text-muted font-bold block">Completion %</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">84%</span>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+
+              {/* Insights */}
+              <Card>
+                <CardBody className="p-6 space-y-4">
+                  <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
+                    Training Quality Insights
+                  </span>
+                  <div className="space-y-3.5 text-xs">
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl space-y-1">
+                      <span className="font-extrabold text-primary block">⭐ Best Rated Trainings</span>
+                      <p className="font-bold text-foreground">React Server Components (RSC) and Databricks Advanced SQL Workshop</p>
+                    </div>
+                    <div className="p-3 bg-accent/5 border border-accent/20 rounded-xl space-y-1">
+                      <span className="font-extrabold text-accent block">👨‍🏫 Best Rated Trainers</span>
+                      <p className="font-bold text-foreground">Amit Verma (AI practice) and Priyanka Sharma (Next.js consultant)</p>
+                    </div>
+                    <div className="p-3 bg-cta/5 border border-cta/20 rounded-xl space-y-1">
+                      <span className="font-extrabold text-cta block">🔥 Most Impactful Program</span>
+                      <p className="font-bold text-foreground">Young Managers Program (YMP) and Tech AI Thon certification tracks</p>
+                    </div>
                   </div>
                 </CardBody>
               </Card>
@@ -1189,17 +1426,19 @@ export default function LeadershipAnalyticsPage() {
         {activeTab === "champions" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Recognition Categories */}
               <Card>
                 <CardBody className="p-6 space-y-4">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                    LMS Learning Champions Recognition
+                    Learning Champions Dashboard
                   </span>
+                  
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                     {[
                       { category: "Top Learner of the Quarter", name: "Priyanka Sharma", details: "48 hours logged", tag: "🏆 Quarterly Champion" },
                       { category: "Top AI Learner", name: "Amit Patel", details: "GenAI pathway completed", tag: "🤖 AI Champion" },
                       { category: "Top Certified Employee", name: "Siddharth Verma", details: "3 external certs synced", tag: "🎓 Zoho Certified" },
-                      { category: "Learning Mentor", name: "Alex Jones", details: "Conducted 12 cloud sessions", tag: "🌟 Team Mentor" }
+                      { category: "Learning Champion", name: "Alex Jones", details: "Conducted 12 cloud sessions", tag: "🌟 Team Champion" }
                     ].map((badge, idx) => (
                       <div key={idx} className="bg-gray-50 border border-border/80 rounded-xl p-4 space-y-2">
                         <span className="text-[9px] font-black text-text-muted uppercase tracking-wider block">
@@ -1216,10 +1455,11 @@ export default function LeadershipAnalyticsPage() {
                 </CardBody>
               </Card>
 
+              {/* Project Investment */}
               <Card>
                 <CardBody className="p-6 space-y-4">
                   <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                    Project Learning Investment Matrix
+                    Project Learning Investment Dashboard
                   </span>
                   <div className="divide-y divide-border text-xs">
                     {[
@@ -1261,14 +1501,14 @@ export default function LeadershipAnalyticsPage() {
             <Card>
               <CardBody className="p-6 space-y-4">
                 <span className="text-xs font-black text-primary uppercase tracking-wider block border-b border-border pb-2">
-                  Campus Hires / Apprentice Development Funnel
+                  Fresher / Apprentice Journey Dashboard
                 </span>
                 <div className="grid grid-cols-6 gap-2 text-center text-xs pt-4">
                   {[
                     { name: "Campus Hiring", val: 120, pct: "100%", color: "bg-gray-100 text-foreground" },
-                    { name: "Training Enroll", val: 120, pct: "100%", color: "bg-primary/10 text-primary border border-primary/20" },
-                    { name: "Training Complete", val: 108, pct: "90%", color: "bg-primary/20 text-primary border border-primary/30" },
-                    { name: "Cert Complete", val: 84, pct: "70%", color: "bg-primary/30 text-primary border border-primary/45" },
+                    { name: "Training Enrollment", val: 120, pct: "100%", color: "bg-primary/10 text-primary border border-primary/20" },
+                    { name: "Training Completion", val: 108, pct: "90%", color: "bg-primary/20 text-primary border border-primary/30" },
+                    { name: "Certification Completion", val: 84, pct: "70%", color: "bg-primary/30 text-primary border border-primary/45" },
                     { name: "Project Allocation", val: 78, pct: "65%", color: "bg-accent/20 text-accent border border-accent/30" },
                     { name: "Billable Deployment", val: 72, pct: "60%", color: "bg-emerald-100 text-emerald-800 border border-emerald-200" }
                   ].map((step, idx) => (
@@ -1284,16 +1524,16 @@ export default function LeadershipAnalyticsPage() {
 
                 <div className="bg-gray-50 border border-border/50 rounded-xl p-4 grid grid-cols-3 gap-6 text-xs text-center mt-4">
                   <div>
-                    <span className="text-text-muted font-bold block">Avg Time to Deployment</span>
+                    <span className="text-text-muted font-bold block">Freshers Hired</span>
+                    <span className="text-xl font-black text-foreground font-mono mt-1 block">120 Hires</span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted font-bold block">Deployment %</span>
+                    <span className="text-xl font-black text-emerald-600 font-mono mt-1 block">60%</span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted font-bold block">Time to Deployment</span>
                     <span className="text-xl font-black text-foreground font-mono mt-1 block">45 Days</span>
-                  </div>
-                  <div>
-                    <span className="text-text-muted font-bold block">Apprentice Conversion Rate</span>
-                    <span className="text-xl font-black text-emerald-600 font-mono mt-1 block">90%</span>
-                  </div>
-                  <div>
-                    <span className="text-text-muted font-bold block">Syllabus Completion Index</span>
-                    <span className="text-xl font-black text-foreground font-mono mt-1 block">88 / 100</span>
                   </div>
                 </div>
               </CardBody>
@@ -1305,70 +1545,85 @@ export default function LeadershipAnalyticsPage() {
         {activeTab === "future" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Skill Gap Dashboard */}
               <Card className="border border-dashed border-primary bg-primary/5">
                 <CardBody className="p-6 space-y-4">
                   <h3 className="text-xs font-black text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-primary/20 pb-2">
                     <Target className="w-4 h-4" />
-                    <span>1. Skill Gap Dashboard (Roadmap)</span>
+                    <span>Skill Gap Dashboard (Roadmap)</span>
                   </h3>
                   <p className="text-xs text-foreground/80 leading-relaxed">
-                    Will display current organizational skill matrices against required client project benchmarks.
+                    Will display organizational skill gaps by project, practice, and client resource requirements.
                   </p>
-                  <div className="space-y-3 pt-2 opacity-60">
+                  <div className="space-y-3 pt-2 opacity-60 text-xs">
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-bold text-foreground">
-                        <span>React/Next.js Gap</span>
-                        <span>-12% Needed</span>
+                      <div className="flex justify-between font-bold text-foreground">
+                        <span>Current Skills vs Required Skills</span>
+                        <span>82% match</span>
                       </div>
-                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary" style={{ width: "88%" }} />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-bold text-foreground">
-                        <span>Databricks/Data Eng Gap</span>
-                        <span>-18% Needed</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-2 bg-gray-250 rounded-full overflow-hidden">
                         <div className="h-full bg-primary" style={{ width: "82%" }} />
                       </div>
+                    </div>
+                    <div className="pt-1 flex justify-between font-bold">
+                      <span>Skill Gap by Project:</span>
+                      <span className="text-primary font-mono">-12% React</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span>Skill Gap by Practice:</span>
+                      <span className="text-primary font-mono">-18% Databricks</span>
                     </div>
                   </div>
                 </CardBody>
               </Card>
 
+              {/* Learning Recommendation Engine */}
               <Card className="border border-dashed border-accent bg-accent/5">
                 <CardBody className="p-6 space-y-4">
                   <h3 className="text-xs font-black text-accent uppercase tracking-wider flex items-center gap-1.5 border-b border-accent/20 pb-2">
                     <Sparkles className="w-4 h-4" />
-                    <span>2. AI Recommendation Engine (Roadmap)</span>
+                    <span>Learning Recommendation Engine (Roadmap)</span>
                   </h3>
                   <p className="text-xs text-foreground/80 leading-relaxed">
-                    Will auto-recommend pathways, certification programs, and career modules based on user logs.
+                    Personalized dashboard recommendations powered by user telemetry data and skill track requirements.
                   </p>
                   <div className="space-y-2 pt-2 opacity-60 text-[11px] font-bold text-foreground">
                     <div className="p-2 bg-white rounded-lg border border-accent/20">
-                      💡 Suggested for Cloud BU: AWS Solutions Architect
+                      💡 Suggested Courses: Next.js App Router Masterclass
                     </div>
                     <div className="p-2 bg-white rounded-lg border border-accent/20">
-                      💡 Suggested for Java team: Reactive Spring Systems
+                      💡 Suggested Certifications: Databricks Certified Engineer
+                    </div>
+                    <div className="p-2 bg-white rounded-lg border border-accent/20">
+                      💡 Suggested Career Path Learning: Solutions Architect Track
                     </div>
                   </div>
                 </CardBody>
               </Card>
 
+              {/* Predictive Analytics */}
               <Card className="border border-dashed border-cta bg-cta/5">
                 <CardBody className="p-6 space-y-4">
                   <h3 className="text-xs font-black text-cta uppercase tracking-wider flex items-center gap-1.5 border-b border-cta/20 pb-2">
                     <LineChart className="w-4 h-4" />
-                    <span>3. Predictive Analytics (Roadmap)</span>
+                    <span>Predictive Analytics (Roadmap)</span>
                   </h3>
                   <p className="text-xs text-foreground/80 leading-relaxed">
-                    Forecast model predicting Zoho certification completions and identify learner attrition risk indices.
+                    Forecast model predicting Zoho certification completions, upskilling metrics, and AI readiness forecasts.
                   </p>
-                  <div className="pt-2 opacity-60 text-xs flex justify-between font-extrabold items-center">
-                    <span className="text-text-muted">Projected cert completion:</span>
-                    <span className="text-cta text-sm font-black font-mono">82% on-time</span>
+                  <div className="space-y-2 pt-2 opacity-60 text-xs">
+                    <div className="flex justify-between font-bold">
+                      <span>Certification Completion Prediction:</span>
+                      <span className="text-cta font-mono">82% on-time</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span>Learning Risk Indicators:</span>
+                      <span className="text-cta font-mono">5 high-risk profiles</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span>AI Readiness Forecast:</span>
+                      <span className="text-cta font-mono">92% by Q4 2026</span>
+                    </div>
                   </div>
                 </CardBody>
               </Card>

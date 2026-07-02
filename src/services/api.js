@@ -579,3 +579,67 @@ export const learnerCredentialService = {
     return true;
   },
 };
+
+export const analyticsService = {
+  getExecutiveSummary: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/executive-summary?${query}`);
+  },
+  getLearningCoverage: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/learning-coverage?${query}`);
+  },
+  getLearningHours: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/learning-hours?${query}`);
+  },
+  getLearningPillars: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/learning-pillars?${query}`);
+  },
+  getAITransformation: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/ai-transformation?${query}`);
+  },
+  getCertifications: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/certifications?${query}`);
+  },
+  getFlagshipPrograms: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/flagship-programs?${query}`);
+  },
+  getLearningTrends: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/learning-trends?${query}`);
+  },
+  getTrainingEffectiveness: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/training-effectiveness?${query}`);
+  },
+  getLearningChampions: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/learning-champions?${query}`);
+  },
+  getProjectInvestment: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/project-investment?${query}`);
+  },
+  getFresherJourney: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/fresher-journey?${query}`);
+  },
+  getSkillGap: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/skill-gap?${query}`);
+  },
+  getRecommendations: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/recommendations?${query}`);
+  },
+  getPredictiveInsights: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    return await request(`/analytics/predictive-insights?${query}`);
+  },
+};
+

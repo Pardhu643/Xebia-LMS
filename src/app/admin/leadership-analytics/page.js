@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import PageHeader from "../../../components/common/PageHeader";
 import MetricCard from "../../../components/common/MetricCard";
 import Card, { CardBody } from "../../../components/common/Card";
 import Button from "../../../components/common/Button";
+import { analyticsService } from "../../../services/api";
 import {
   TrendingUp,
   Award,
@@ -73,6 +74,79 @@ export default function LeadershipAnalyticsPage() {
   const [activeTab, setActiveTab] = useState("executive");
   const [trendView, setTrendView] = useState("QoQ"); // QoQ, MoM, YoY tabs for trends
 
+  // Backend integration state
+  const [apiData, setApiData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        let data = null;
+        const apiParams = {
+          year: filters.year,
+          quarter: filters.quarter,
+          halfYear: filters.halfYear,
+          month: filters.month,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          region: filters.region,
+          location: filters.location,
+          businessUnit: filters.bu,
+          department: filters.dept,
+          project: filters.project,
+          practice: filters.practice,
+          employeeGrade: filters.grade,
+          employeeId: filters.employee
+        };
+
+        if (activeTab === "executive") {
+          data = await analyticsService.getExecutiveSummary(apiParams);
+        } else if (activeTab === "coverage") {
+          data = await analyticsService.getLearningCoverage(apiParams);
+        } else if (activeTab === "hours") {
+          data = await analyticsService.getLearningHours(apiParams);
+        } else if (activeTab === "pillars") {
+          data = await analyticsService.getLearningPillars(apiParams);
+        } else if (activeTab === "ai") {
+          data = await analyticsService.getAITransformation(apiParams);
+        } else if (activeTab === "certs") {
+          data = await analyticsService.getCertifications(apiParams);
+        } else if (activeTab === "flagship") {
+          data = await analyticsService.getFlagshipPrograms(apiParams);
+        } else if (activeTab === "trends") {
+          const trends = await analyticsService.getLearningTrends(apiParams);
+          const eff = await analyticsService.getTrainingEffectiveness(apiParams);
+          if (trends || eff) {
+            data = { ...trends, ...eff };
+          }
+        } else if (activeTab === "champions") {
+          const champs = await analyticsService.getLearningChampions(apiParams);
+          const invest = await analyticsService.getProjectInvestment(apiParams);
+          if (champs || invest) {
+            data = { ...champs, projectInvestment: invest };
+          }
+        } else if (activeTab === "freshers") {
+          data = await analyticsService.getFresherJourney(apiParams);
+        } else if (activeTab === "future") {
+          const gap = await analyticsService.getSkillGap(apiParams);
+          const recs = await analyticsService.getRecommendations(apiParams);
+          const pred = await analyticsService.getPredictiveInsights(apiParams);
+          if (gap || recs || pred) {
+            data = { ...gap, ...recs, ...pred };
+          }
+        }
+        setApiData(data);
+      } catch (err) {
+        console.error("Failed to load backend analytics data:", err);
+        setApiData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [activeTab, filters]);
+
   // Reset filters
   const resetFilters = () => {
     setFilters({
@@ -93,7 +167,7 @@ export default function LeadershipAnalyticsPage() {
     });
   };
 
-  // Helper factor for scaling numbers based on filters
+  // Helper factor for local scaling fallback calculations
   const filterFactor = useMemo(() => {
     let factor = 1.0;
     if (filters.year !== "All") factor *= 0.6;
@@ -127,7 +201,7 @@ export default function LeadershipAnalyticsPage() {
     return Math.floor(rnd * (max - min + 1) + min);
   };
 
-  // Computed metrics aligning with PDF requirements
+  // Local fallback calculation engine
   const kpis = useMemo(() => {
     const totalEmployees = Math.max(Math.round(2500 * (filters.region !== "All" ? 0.35 : 1) * (filters.dept !== "All" ? 0.25 : 1)), 50);
     const nominated = Math.round(totalEmployees * (0.8 + (pseudoRandom(1, 10, 2) / 100)));
@@ -176,6 +250,32 @@ export default function LeadershipAnalyticsPage() {
     };
   }, [filterFactor, filters, dataSeed]);
 
+  // Integrated KPI overlay (prefers backend apiData over local fallback)
+  const executiveMetrics = useMemo(() => {
+    if (apiData && activeTab === "executive") {
+      return {
+        totalEmployees: apiData.totalEmployees,
+        nominated: apiData.employeesNominated,
+        trained: apiData.employeesTrained,
+        coveragePercent: apiData.learningCoveragePercentage,
+        sessions: apiData.totalSessionsConducted,
+        attendees: apiData.totalAttendees,
+        nominations: apiData.totalNominations,
+        learningHours: apiData.totalLearningHours,
+        avgHoursPerSession: apiData.averageHoursPerSession,
+        certsCompleted: apiData.totalCertificationsCompleted,
+        certGrowth: apiData.certificationGrowthPercentage,
+        aiTrained: apiData.employeesTrainedInAI,
+        aiCerts: apiData.aiCertificationsAchieved,
+        aiLearningHours: apiData.aiLearningHours,
+        avgFeedback: apiData.averageFeedbackRating,
+        satScore: apiData.trainingSatisfactionScore,
+        recommendPercent: apiData.recommendationPercentage
+      };
+    }
+    return kpis;
+  }, [apiData, kpis, activeTab]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -193,7 +293,7 @@ export default function LeadershipAnalyticsPage() {
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <span className="text-xs font-black text-primary uppercase tracking-wider flex items-center gap-1.5">
               <Layers className="w-4 h-4 text-accent" />
-              <span>Global Enterprise Filters</span>
+              <span>Global Enterprise Filters {loading && <span className="normal-case text-[10px] text-text-muted font-normal animate-pulse">(syncing with backend...)</span>}</span>
             </span>
             <Button
               variant="outline"
@@ -382,7 +482,7 @@ export default function LeadershipAnalyticsPage() {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); setApiData(null); }}
             className={`py-3 px-5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
               activeTab === tab.id
                 ? "border-primary text-primary bg-primary/5 font-extrabold"
@@ -403,21 +503,21 @@ export default function LeadershipAnalyticsPage() {
               {/* Learning Reach */}
               <MetricCard
                 title="Total Employees"
-                value={kpis.totalEmployees.toLocaleString()}
+                value={executiveMetrics.totalEmployees.toLocaleString()}
                 icon={Users}
                 description="Total enterprise headcount"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Employees Nominated"
-                value={kpis.nominated.toLocaleString()}
+                value={executiveMetrics.nominated.toLocaleString()}
                 icon={Award}
                 description="Nominated for skill programs"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Employees Trained"
-                value={kpis.trained.toLocaleString()}
+                value={executiveMetrics.trained.toLocaleString()}
                 icon={CheckCircle2}
                 description="Completed learning paths"
                 gradientScheme="primary"
@@ -428,9 +528,9 @@ export default function LeadershipAnalyticsPage() {
                     <span>Learning Coverage %</span>
                     <Percent className="w-4 h-4 text-accent" />
                   </div>
-                  <span className="text-2xl font-black text-foreground mt-2 block">{kpis.coveragePercent}%</span>
+                  <span className="text-2xl font-black text-foreground mt-2 block">{executiveMetrics.coveragePercent}%</span>
                   <div className="h-2 bg-gray-150 rounded-full overflow-hidden mt-3.5">
-                    <div className="h-full bg-accent rounded-full" style={{ width: `${kpis.coveragePercent}%` }} />
+                    <div className="h-full bg-accent rounded-full" style={{ width: `${executiveMetrics.coveragePercent}%` }} />
                   </div>
                 </div>
                 <span className="text-[10px] text-text-muted font-bold mt-3 block">
@@ -441,35 +541,35 @@ export default function LeadershipAnalyticsPage() {
               {/* Learning Delivery */}
               <MetricCard
                 title="Total Sessions Conducted"
-                value={kpis.sessions.toString()}
+                value={executiveMetrics.sessions.toString()}
                 icon={Calendar}
                 description="Live expert sessions conducted"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Total Attendees"
-                value={kpis.attendees.toLocaleString()}
+                value={executiveMetrics.attendees.toLocaleString()}
                 icon={Users}
                 description="Sum total of attendance instances"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Total Nominations"
-                value={kpis.nominations.toLocaleString()}
+                value={executiveMetrics.nominations.toLocaleString()}
                 icon={Award}
                 description="Registrations processed"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Total Learning Hours"
-                value={kpis.learningHours.toLocaleString()}
+                value={executiveMetrics.learningHours.toLocaleString()}
                 icon={Clock}
                 description="Total learning exposure logged"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Average Hours per Session"
-                value={`${kpis.avgHoursPerSession} hrs`}
+                value={`${executiveMetrics.avgHoursPerSession} hrs`}
                 icon={Clock}
                 description="Avg session duration telemetry"
                 gradientScheme="primary"
@@ -478,14 +578,14 @@ export default function LeadershipAnalyticsPage() {
               {/* Certification Summary */}
               <MetricCard
                 title="Total Certifications Completed"
-                value={kpis.certsCompleted.toString()}
+                value={executiveMetrics.certsCompleted.toString()}
                 icon={Award}
                 description="Total completed cert badges"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Certification Growth %"
-                value={`+${kpis.certGrowth}%`}
+                value={`+${executiveMetrics.certGrowth}%`}
                 icon={TrendingUp}
                 description="YoY certification completed growth"
                 gradientScheme="primary"
@@ -494,21 +594,21 @@ export default function LeadershipAnalyticsPage() {
               {/* AI Readiness Summary */}
               <MetricCard
                 title="Employees Trained in AI"
-                value={kpis.aiTrained.toString()}
+                value={executiveMetrics.aiTrained.toString()}
                 icon={Sparkles}
                 description="Trained in AI Pillars"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="AI Certifications Achieved"
-                value={kpis.aiCerts.toString()}
+                value={executiveMetrics.aiCerts.toString()}
                 icon={Award}
                 description="Databricks, Kiro & internal AI certs"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="AI Learning Hours"
-                value={kpis.aiLearningHours.toLocaleString()}
+                value={executiveMetrics.aiLearningHours.toLocaleString()}
                 icon={Clock}
                 description="Dedicated GenAI skills hours"
                 gradientScheme="primary"
@@ -517,21 +617,21 @@ export default function LeadershipAnalyticsPage() {
               {/* Training Effectiveness */}
               <MetricCard
                 title="Average Feedback Rating"
-                value={`${kpis.avgFeedback} / 5.0`}
+                value={`${executiveMetrics.avgFeedback} / 5.0`}
                 icon={ThumbsUp}
                 description="Attendee evaluation score average"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Training Satisfaction Score"
-                value={`${kpis.satScore}%`}
+                value={`${executiveMetrics.satScore}%`}
                 icon={Percent}
                 description="Overall CSAT rating index"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Recommendation %"
-                value={`${kpis.recommendPercent}%`}
+                value={`${executiveMetrics.recommendPercent}%`}
                 icon={ThumbsUp}
                 description="Attendees recommending the program"
                 gradientScheme="primary"
@@ -550,18 +650,19 @@ export default function LeadershipAnalyticsPage() {
                   Learning Coverage Metrics Breakout
                 </span>
                 <div className="space-y-4.5">
-                  {[
-                    { label: "Learning Coverage by Region", trained: Math.round(kpis.trained * 0.88), total: Math.round(kpis.totalEmployees * 0.9) },
-                    { label: "Learning Coverage by Location", trained: Math.round(kpis.trained * 0.65), total: Math.round(kpis.totalEmployees * 0.72) },
-                    { label: "Learning Coverage by Project", trained: Math.round(kpis.trained * 0.76), total: Math.round(kpis.totalEmployees * 0.8) },
-                    { label: "Learning Coverage by Business Unit", trained: Math.round(kpis.trained * 0.94), total: Math.round(kpis.totalEmployees * 0.95) },
-                    { label: "Learning Coverage by Employee Grade", trained: Math.round(kpis.trained * 0.82), total: Math.round(kpis.totalEmployees * 0.88) }
-                  ].map((item, idx) => {
-                    const pct = ((item.trained / item.total) * 100).toFixed(1);
+                  {(apiData?.coverageByRegion || [
+                    { region: "India Region", percentage: 92 },
+                    { region: "USA Region", percentage: 64 },
+                    { region: "UK Region", percentage: 58 },
+                    { region: "Netherlands Region", percentage: 82 },
+                    { region: "Middle East Region", percentage: 45 }
+                  ]).map((item, idx) => {
+                    const label = item.region || item.label;
+                    const pct = item.percentage;
                     return (
                       <div key={idx} className="space-y-1.5">
                         <div className="flex justify-between text-xs font-extrabold text-foreground">
-                          <span>{item.label}</span>
+                          <span>{label}</span>
                           <span>{pct}%</span>
                         </div>
                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -581,22 +682,28 @@ export default function LeadershipAnalyticsPage() {
                   Coverage Heatmap
                 </span>
                 <div className="grid grid-cols-3 gap-3 pt-2">
-                  {[
-                    { name: "Gurugram", pct: 88, class: "bg-emerald-600 text-white" },
-                    { name: "Bengaluru", pct: 92, class: "bg-emerald-700 text-white" },
-                    { name: "Noida", pct: 75, class: "bg-emerald-500 text-white" },
-                    { name: "Atlanta", pct: 64, class: "bg-amber-500 text-white" },
-                    { name: "London", pct: 58, class: "bg-amber-500 text-white" },
-                    { name: "Amsterdam", pct: 82, class: "bg-emerald-600 text-white" },
-                    { name: "Dubai", pct: 45, class: "bg-rose-500 text-white" },
-                    { name: "Pune", pct: 79, class: "bg-emerald-500 text-white" },
-                    { name: "Sales US", pct: 38, class: "bg-rose-600 text-white" }
-                  ].map((cell, idx) => (
-                    <div key={idx} className={`p-4 rounded-xl flex flex-col justify-between h-24 ${cell.class} shadow-xs`}>
-                      <span className="text-[10px] font-bold uppercase tracking-wider">{cell.name}</span>
-                      <span className="text-lg font-black">{cell.pct}%</span>
-                    </div>
-                  ))}
+                  {(apiData?.coverageHeatmap || [
+                    { name: "Gurugram", pct: 88 },
+                    { name: "Bengaluru", pct: 92 },
+                    { name: "Noida", pct: 75 },
+                    { name: "Atlanta", pct: 64 },
+                    { name: "London", pct: 58 },
+                    { name: "Amsterdam", pct: 82 },
+                    { name: "Dubai", pct: 45 },
+                    { name: "Pune", pct: 79 },
+                    { name: "Sales US", pct: 38 }
+                  ]).map((cell, idx) => {
+                    let colorClass = "bg-emerald-600 text-white";
+                    if (cell.pct < 50) colorClass = "bg-rose-500 text-white";
+                    else if (cell.pct < 75) colorClass = "bg-amber-500 text-white";
+                    else if (cell.pct >= 90) colorClass = "bg-emerald-700 text-white";
+                    return (
+                      <div key={idx} className={`p-4 rounded-xl flex flex-col justify-between h-24 ${colorClass} shadow-xs`}>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">{cell.name}</span>
+                        <span className="text-lg font-black">{cell.pct}%</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardBody>
             </Card>
@@ -613,15 +720,21 @@ export default function LeadershipAnalyticsPage() {
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-foreground">Region-wise Coverage Chart</h4>
                     <div className="h-44 flex items-end justify-between gap-4 border-b border-border pb-2 px-2">
-                      {[92, 64, 58, 82, 45].map((val, idx) => (
+                      {(apiData?.regionWiseCoverageChart || [
+                        { name: "India", value: 92 },
+                        { name: "USA", value: 64 },
+                        { name: "UK", value: 58 },
+                        { name: "NL", value: 82 },
+                        { name: "M.East", value: 45 }
+                      ]).map((bar, idx) => (
                         <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
-                          <div className="text-[9px] font-bold text-accent font-mono">{val}%</div>
+                          <div className="text-[9px] font-bold text-accent font-mono">{bar.value}%</div>
                           <div
                             className="w-full bg-accent hover:bg-primary transition-all rounded-t-md"
-                            style={{ height: `${(val / 100) * 120}px` }}
+                            style={{ height: `${(bar.value / 100) * 120}px` }}
                           />
                           <span className="text-[9px] text-text-muted font-bold truncate max-w-full">
-                            {["India", "USA", "UK", "Netherlands", "M.East"][idx]}
+                            {bar.name}
                           </span>
                         </div>
                       ))}
@@ -632,15 +745,21 @@ export default function LeadershipAnalyticsPage() {
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-foreground">Project-wise Participation Chart</h4>
                     <div className="h-44 flex items-end justify-between gap-4 border-b border-border pb-2 px-2">
-                      {[78, 92, 54, 88, 62].map((val, idx) => (
+                      {(apiData?.projectWiseParticipationChart || [
+                        { name: "Proj Alpha", value: 78 },
+                        { name: "Proj Orion", value: 92 },
+                        { name: "Proj Sirius", value: 54 },
+                        { name: "Proj Polaris", value: 88 },
+                        { name: "Proj Zenith", value: 62 }
+                      ]).map((bar, idx) => (
                         <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
-                          <div className="text-[9px] font-bold text-primary font-mono">{val}</div>
+                          <div className="text-[9px] font-bold text-primary font-mono">{bar.value}</div>
                           <div
                             className="w-full bg-primary hover:bg-accent transition-all rounded-t-md"
-                            style={{ height: `${(val / 100) * 120}px` }}
+                            style={{ height: `${(bar.value / 100) * 120}px` }}
                           />
                           <span className="text-[9px] text-text-muted font-bold truncate max-w-full">
-                            {["Proj Alpha", "Proj Orion", "Proj Sirius", "Proj Polaris", "Proj Zenith"][idx]}
+                            {bar.name}
                           </span>
                         </div>
                       ))}
@@ -684,21 +803,21 @@ export default function LeadershipAnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
                 title="Total Learning Hours"
-                value={kpis.learningHours.toLocaleString()}
+                value={(apiData?.totalLearningHours || kpis.learningHours).toLocaleString()}
                 icon={Clock}
                 description="Total organization hours spent"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Avg Hours per Employee"
-                value={(kpis.learningHours / kpis.totalEmployees).toFixed(1)}
+                value={apiData?.averageLearningHoursPerEmployee || (kpis.learningHours / kpis.totalEmployees).toFixed(1)}
                 icon={Clock}
                 description="Hours per employee headcount"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Avg Hours per Active Learner"
-                value={(kpis.learningHours / kpis.trained).toFixed(1)}
+                value={apiData?.averageLearningHoursPerActiveLearner || (kpis.learningHours / kpis.trained).toFixed(1)}
                 icon={Clock}
                 description="Hours per active trained learner"
                 gradientScheme="primary"
@@ -729,21 +848,21 @@ export default function LeadershipAnalyticsPage() {
                         <span>Top 10 Learning-Focused Regions (Average Hours)</span>
                       </h4>
                       <div className="divide-y divide-border text-xs">
-                        {[
-                          { name: "Bengaluru (India)", hours: "28.4 hrs" },
-                          { name: "Gurugram (India)", hours: "26.2 hrs" },
-                          { name: "Amsterdam (NL)", hours: "24.5 hrs" },
-                          { name: "Noida (India)", hours: "22.8 hrs" },
-                          { name: "Atlanta (USA)", hours: "20.5 hrs" },
-                          { name: "London (UK)", hours: "18.2 hrs" },
-                          { name: "Dubai (ME)", hours: "15.4 hrs" },
-                          { name: "Singapore (APAC)", hours: "14.8 hrs" },
-                          { name: "Pune (India)", hours: "14.2 hrs" },
-                          { name: "Riyadh (KSA)", hours: "12.5 hrs" }
-                        ].map((item, idx) => (
+                        {(apiData?.top10LearningFocusedRegions || [
+                          { name: "Bengaluru (India)", value: 28 },
+                          { name: "Gurugram (India)", value: 26 },
+                          { name: "Amsterdam (NL)", value: 24 },
+                          { name: "Noida (India)", value: 22 },
+                          { name: "Atlanta (USA)", value: 20 },
+                          { name: "London (UK)", value: 18 },
+                          { name: "Dubai (ME)", value: 15 },
+                          { name: "Singapore (APAC)", value: 14 },
+                          { name: "Pune (India)", value: 14 },
+                          { name: "Riyadh (KSA)", value: 12 }
+                        ]).map((item, idx) => (
                           <div key={idx} className="flex justify-between py-2 items-center">
-                            <span className="font-bold">{idx + 1}. {item.name}</span>
-                            <span className="text-text-muted font-mono">{item.hours}</span>
+                            <span className="font-bold">{idx + 1}. {item.name || item.region}</span>
+                            <span className="text-text-muted font-mono">{item.value || item.hours} hrs</span>
                           </div>
                         ))}
                       </div>
@@ -756,21 +875,21 @@ export default function LeadershipAnalyticsPage() {
                         <span>Top 10 Learning-Focused Projects (Average Hours)</span>
                       </h4>
                       <div className="divide-y divide-border text-xs">
-                        {[
-                          { name: "Project Alpha", hours: "48.2 hrs" },
-                          { name: "Project Orion", hours: "45.0 hrs" },
-                          { name: "Project Sirius", hours: "42.5 hrs" },
-                          { name: "Project Polaris", hours: "38.8 hrs" },
-                          { name: "Project Zenith", hours: "35.2 hrs" },
-                          { name: "Project Delta", hours: "32.0 hrs" },
-                          { name: "Project Apex", hours: "28.5 hrs" },
-                          { name: "Project Titan", hours: "26.4 hrs" },
-                          { name: "Project Helix", hours: "24.8 hrs" },
-                          { name: "Project Omega", hours: "22.5 hrs" }
-                        ].map((item, idx) => (
+                        {(apiData?.top10LearningFocusedProjects || [
+                          { name: "Project Alpha", value: 48 },
+                          { name: "Project Orion", value: 45 },
+                          { name: "Project Sirius", value: 42 },
+                          { name: "Project Polaris", value: 38 },
+                          { name: "Project Zenith", value: 35 },
+                          { name: "Project Delta", value: 32 },
+                          { name: "Project Apex", value: 28 },
+                          { name: "Project Titan", value: 26 },
+                          { name: "Project Helix", value: 24 },
+                          { name: "Project Omega", value: 22 }
+                        ]).map((item, idx) => (
                           <div key={idx} className="flex justify-between py-2 items-center">
-                            <span className="font-bold">{idx + 1}. {item.name}</span>
-                            <span className="text-text-muted font-mono">{item.hours}</span>
+                            <span className="font-bold">{idx + 1}. {item.name || item.project}</span>
+                            <span className="text-text-muted font-mono">{item.value || item.hours} hrs</span>
                           </div>
                         ))}
                       </div>
@@ -786,7 +905,7 @@ export default function LeadershipAnalyticsPage() {
                     Top 10 Active Learners
                   </span>
                   <div className="divide-y divide-border text-xs">
-                    {[
+                    {(apiData?.top10ActiveLearners || [
                       { name: "Priyanka Sharma", hours: 48, progress: 95, track: "Next.js" },
                       { name: "Amit Patel", hours: 42, progress: 80, track: "Kubernetes" },
                       { name: "Rachel Green", hours: 38, progress: 65, track: "Spring Boot" },
@@ -797,7 +916,7 @@ export default function LeadershipAnalyticsPage() {
                       { name: "Michael Green", hours: 26, progress: 82, track: "GCP Basics" },
                       { name: "Lucas Black", hours: 24, progress: 60, track: "Snowflake" },
                       { name: "Sarah Smith", hours: 22, progress: 70, track: "Agile Scrum" }
-                    ].map((item, idx) => (
+                    ]).map((item, idx) => (
                       <div key={idx} className="py-2.5 space-y-1">
                         <div className="flex justify-between font-semibold">
                           <span>{idx + 1}. {item.name}</span>
@@ -876,29 +995,41 @@ export default function LeadershipAnalyticsPage() {
                   certs: 120,
                   icon: Target
                 }
-              ].map((pillar, idx) => (
-                <Card key={idx} className="hoverable border border-border/80 flex flex-col justify-between" hoverable>
-                  <CardBody className="p-6 space-y-4">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-sm font-black text-primary leading-tight">{pillar.title}</h3>
-                      <div className="p-2 bg-primary/5 rounded-lg text-primary">
-                        <pillar.icon className="w-5 h-5" />
+              ].map((pillar, idx) => {
+                // If apiData is loaded from backend, overlay the calculated numbers
+                let displayHours = pillar.hours;
+                let displayParticipants = 25;
+                if (apiData && Array.isArray(apiData)) {
+                  const apiPillar = apiData.find(ap => ap.pillarName?.toLowerCase().includes(pillar.title.substring(3).toLowerCase().trim()));
+                  if (apiPillar) {
+                    displayHours = apiPillar.learningHours;
+                    displayParticipants = apiPillar.totalParticipants;
+                  }
+                }
+                return (
+                  <Card key={idx} className="hoverable border border-border/80 flex flex-col justify-between" hoverable>
+                    <CardBody className="p-6 space-y-4">
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-sm font-black text-primary leading-tight">{pillar.title}</h3>
+                        <div className="p-2 bg-primary/5 rounded-lg text-primary">
+                          <pillar.icon className="w-5 h-5" />
+                        </div>
                       </div>
+                      <p className="text-xs text-foreground/80 leading-relaxed">{pillar.desc}</p>
+                      <div className="bg-gray-50 border border-border/50 rounded-xl p-3.5 space-y-2.5">
+                        <span className="text-[10px] text-text-muted uppercase font-black tracking-wider block">
+                          Included Tracks
+                        </span>
+                        <p className="text-[11px] font-bold text-foreground leading-snug">{pillar.examples}</p>
+                      </div>
+                    </CardBody>
+                    <div className="bg-gray-50/50 border-t border-border px-6 py-3.5 flex justify-between text-[10px] text-text-muted font-bold uppercase tracking-wider">
+                      <span>{displayHours.toLocaleString()} hours</span>
+                      <span>{displayParticipants} participants</span>
                     </div>
-                    <p className="text-xs text-foreground/80 leading-relaxed">{pillar.desc}</p>
-                    <div className="bg-gray-50 border border-border/50 rounded-xl p-3.5 space-y-2.5">
-                      <span className="text-[10px] text-text-muted uppercase font-black tracking-wider block">
-                        Included Tracks
-                      </span>
-                      <p className="text-[11px] font-bold text-foreground leading-snug">{pillar.examples}</p>
-                    </div>
-                  </CardBody>
-                  <div className="bg-gray-50/50 border-t border-border px-6 py-3.5 flex justify-between text-[10px] text-text-muted font-bold uppercase tracking-wider">
-                    <span>{pillar.hours.toLocaleString()} hours</span>
-                    <span>{pillar.certs} certs</span>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           </div>
         )}
@@ -910,35 +1041,35 @@ export default function LeadershipAnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               <MetricCard
                 title="Employees Trained on AI"
-                value={kpis.aiTrained.toString()}
+                value={(apiData?.employeesTrainedOnAI || kpis.aiTrained).toString()}
                 icon={Sparkles}
                 description="Completed AI Capability paths"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Employees Certified on AI"
-                value={kpis.aiCerts.toString()}
+                value={(apiData?.employeesCertifiedOnAI || kpis.aiCerts).toString()}
                 icon={Award}
                 description="AI credentials achieved"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="AI Learning Hours"
-                value={kpis.aiLearningHours.toLocaleString()}
+                value={(apiData?.aiLearningHours || kpis.aiLearningHours).toLocaleString()}
                 icon={Clock}
                 description="Total AI study hours logged"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="AI Sessions Conducted"
-                value={kpis.aiSessions.toString()}
+                value={(apiData?.aiSessionsConducted || kpis.aiSessions).toString()}
                 icon={Calendar}
                 description="AI courses & workshops run"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="AI Training Attendance %"
-                value={`${kpis.aiAttendancePct}%`}
+                value={`${apiData?.aiTrainingAttendancePercentage || kpis.aiAttendancePct}%`}
                 icon={Percent}
                 description="Average attendee sync rate"
                 gradientScheme="primary"
@@ -954,23 +1085,27 @@ export default function LeadershipAnalyticsPage() {
                     AI Adoption Funnel
                   </span>
                   <div className="space-y-3 pt-3">
-                    {[
-                      { name: "Registered", count: 980, width: "w-full", color: "bg-primary" },
-                      { name: "Attended", count: 750, width: "w-11/12", color: "bg-primary/95" },
-                      { name: "Completed Learning", count: 480, width: "w-8/12", color: "bg-primary/80" },
-                      { name: "Certified", count: 180, width: "w-5/12", color: "bg-primary/65" },
-                      { name: "Using AI Tools", count: 95, width: "w-3/12", color: "bg-accent" }
-                    ].map((step, idx) => (
-                      <div key={idx} className="flex items-center gap-4 text-xs">
-                        <span className="w-40 font-bold text-foreground text-right">{step.name}</span>
-                        <div className="flex-1">
-                          <div className={`h-8 ${step.color} ${step.width} rounded-r-lg flex items-center justify-between px-3 text-white font-extrabold shadow-sm`}>
-                            <span>{step.count}</span>
-                            <span>{((step.count / 980) * 100).toFixed(0)}%</span>
+                    {(apiData?.aiAdoptionFunnel || [
+                      { name: "Registered", count: 980, percentage: 100 },
+                      { name: "Attended", count: 750, percentage: 76 },
+                      { name: "Completed Learning", count: 480, percentage: 49 },
+                      { name: "Certified", count: 180, percentage: 18 },
+                      { name: "Using AI Tools", count: 95, percentage: 9 }
+                    ]).map((step, idx) => {
+                      const pct = step.percentage || step.pct;
+                      const widthVal = pct === 100 ? "w-full" : pct > 75 ? "w-11/12" : pct > 40 ? "w-8/12" : pct > 15 ? "w-5/12" : "w-3/12";
+                      return (
+                        <div key={idx} className="flex items-center gap-4 text-xs">
+                          <span className="w-40 font-bold text-foreground text-right">{step.name}</span>
+                          <div className="flex-1">
+                            <div className={`h-8 bg-primary/90 ${widthVal} rounded-r-lg flex items-center justify-between px-3 text-white font-extrabold shadow-sm`}>
+                              <span>{step.count}</span>
+                              <span>{pct}%</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardBody>
               </Card>
@@ -982,15 +1117,15 @@ export default function LeadershipAnalyticsPage() {
                     AI Tools Adoption & Champions
                   </span>
                   <div className="space-y-3">
-                    {[
-                      { name: "Copilot Users", count: 640 },
-                      { name: "Kiro Users", count: 420 },
-                      { name: "Claude Users", count: 185 },
-                      { name: "Other Platform Users", count: 92 }
-                    ].map((tool, idx) => (
+                    {Object.entries(apiData?.aiToolsAdoption || {
+                      "Copilot Users": 640,
+                      "Kiro Users": 420,
+                      "Claude Users": 185,
+                      "Other Platform Users": 92
+                    }).map(([toolName, val], idx) => (
                       <div key={idx} className="flex justify-between items-center text-xs border-b border-border/50 pb-2 last:border-0 last:pb-0">
-                        <span className="font-semibold">{tool.name}</span>
-                        <span className="font-extrabold text-foreground font-mono">{tool.count}</span>
+                        <span className="font-semibold">{toolName}</span>
+                        <span className="font-extrabold text-foreground font-mono">{String(val)}</span>
                       </div>
                     ))}
                   </div>
@@ -1001,15 +1136,15 @@ export default function LeadershipAnalyticsPage() {
                     </span>
                     <div className="grid grid-cols-3 gap-2 text-center text-xs">
                       <div className="bg-white border border-border p-2 rounded-lg">
-                        <span className="block font-black text-primary">24</span>
+                        <span className="block font-black text-primary">{apiData?.aiChampions?.["AI Power Users"] || 24}</span>
                         <span className="text-[9px] font-bold text-text-muted">AI Power Users</span>
                       </div>
                       <div className="bg-white border border-border p-2 rounded-lg">
-                        <span className="block font-black text-accent">12</span>
+                        <span className="block font-black text-accent">{apiData?.aiChampions?.["AI Mentors"] || 12}</span>
                         <span className="text-[9px] font-bold text-text-muted">AI Mentors</span>
                       </div>
                       <div className="bg-white border border-border p-2 rounded-lg">
-                        <span className="block font-black text-cta">8</span>
+                        <span className="block font-black text-cta">{apiData?.aiChampions?.["AI Ambassadors"] || 8}</span>
                         <span className="text-[9px] font-bold text-text-muted">Ambassadors</span>
                       </div>
                     </div>
@@ -1027,22 +1162,27 @@ export default function LeadershipAnalyticsPage() {
                     AI Capability Heatmap (Readiness Scores)
                   </span>
                   <div className="grid grid-cols-4 gap-3 text-center text-xs">
-                    {[
-                      { type: "Region", name: "India Center", val: 92, class: "bg-emerald-500 text-white" },
-                      { type: "Region", name: "USA/UK Center", val: 64, class: "bg-amber-500 text-white" },
-                      { type: "Department", name: "Data Science", val: 96, class: "bg-emerald-600 text-white" },
-                      { type: "Department", name: "Consulting", val: 58, class: "bg-amber-500 text-white" },
-                      { type: "Project", name: "Project Alpha", val: 85, class: "bg-emerald-500 text-white" },
-                      { type: "Project", name: "Project Polaris", val: 54, class: "bg-amber-500 text-white" },
-                      { type: "Practice", name: "Generative AI", val: 98, class: "bg-emerald-750 text-white" },
-                      { type: "Practice", name: "Salesforce Practice", val: 42, class: "bg-rose-500 text-white" }
-                    ].map((cell, idx) => (
-                      <div key={idx} className={`p-3 rounded-xl flex flex-col justify-between h-20 ${cell.class}`}>
-                        <span className="text-[8px] font-black uppercase tracking-wider block opacity-80">{cell.type}</span>
-                        <span className="text-[10px] font-bold leading-tight block">{cell.name}</span>
-                        <span className="text-base font-black block mt-0.5">{cell.val}/100</span>
-                      </div>
-                    ))}
+                    {(apiData?.aiCapabilityHeatmap || [
+                      { name: "India Center", pct: 92 },
+                      { name: "USA/UK Center", pct: 64 },
+                      { name: "Data Science", pct: 96 },
+                      { name: "Consulting", pct: 58 },
+                      { name: "Project Alpha", pct: 85 },
+                      { name: "Project Polaris", pct: 54 },
+                      { name: "Generative AI", pct: 98 },
+                      { name: "Salesforce Practice", pct: 42 }
+                    ]).map((cell, idx) => {
+                      let color = "bg-emerald-500 text-white";
+                      if (cell.pct < 50) color = "bg-rose-500 text-white";
+                      else if (cell.pct < 75) color = "bg-amber-500 text-white";
+                      return (
+                        <div key={idx} className={`p-3 rounded-xl flex flex-col justify-between h-20 ${color}`}>
+                          <span className="text-[8px] font-black uppercase tracking-wider block opacity-80">Telemetry</span>
+                          <span className="text-[10px] font-bold leading-tight block">{cell.name}</span>
+                          <span className="text-base font-black block mt-0.5">{cell.pct || cell.val}/100</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardBody>
               </Card>
@@ -1057,7 +1197,7 @@ export default function LeadershipAnalyticsPage() {
                   <div className="bg-gradient-to-br from-primary-dark via-primary to-secondary text-white p-5 rounded-2xl space-y-3 relative overflow-hidden">
                     <div className="absolute right-0 bottom-0 top-0 w-1/3 bg-radial from-accent/20 to-transparent blur-2xl" />
                     <span className="text-[10px] uppercase font-black tracking-wider block text-white/70">Maturity Rating</span>
-                    <h3 className="text-3xl font-black">76 / 100</h3>
+                    <h3 className="text-3xl font-black">{apiData?.aiMaturityScore || 76} / 100</h3>
                     <p className="text-[10px] text-white/90 leading-relaxed">
                       Calculated from a weighted index combining training completion (40%), certification (30%), daily tool adoption (20%), and learning hours (10%).
                     </p>
@@ -1075,21 +1215,21 @@ export default function LeadershipAnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
                 title="Total Certifications"
-                value={kpis.certsCompleted.toString()}
+                value={(apiData?.totalCertifications || kpis.certsCompleted).toString()}
                 icon={Award}
                 description="Synced with Zoho database"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Approved in Zoho"
-                value={Math.round(kpis.certsCompleted * 0.9).toString()}
+                value={Math.round((apiData?.totalCertifications || kpis.certsCompleted) * 0.9).toString()}
                 icon={CheckCircle2}
                 description="Approved Zoho credentials sync"
                 gradientScheme="primary"
               />
               <MetricCard
                 title="Pending Approval"
-                value={Math.round(kpis.certsCompleted * 0.1).toString()}
+                value={Math.round((apiData?.totalCertifications || kpis.certsCompleted) * 0.1).toString()}
                 icon={Clock}
                 description="Submitted Zoho approvals pending"
                 gradientScheme="primary"
@@ -1112,19 +1252,24 @@ export default function LeadershipAnalyticsPage() {
                     Zoho Certification Lifecycle Funnel
                   </span>
                   <div className="grid grid-cols-6 gap-2 text-center text-xs pt-4">
-                    {[
-                      { name: "Assigned", val: 520, color: "bg-gray-100 text-foreground" },
-                      { name: "Enrolled", val: 410, color: "bg-primary/10 text-primary border border-primary/20" },
-                      { name: "Started", val: 320, color: "bg-primary/20 text-primary border border-primary/30" },
-                      { name: "Completed", val: 240, color: "bg-primary/30 text-primary border border-primary/45" },
-                      { name: "Submitted", val: 215, color: "bg-accent/20 text-accent border border-accent/30" },
-                      { name: "Approved in Zoho", val: 195, color: "bg-emerald-100 text-emerald-800 border border-emerald-200" }
-                    ].map((step, idx) => (
-                      <div key={idx} className={`p-3 rounded-xl flex flex-col justify-between h-28 ${step.color} shadow-xs`}>
-                        <span className="text-[10px] font-bold uppercase tracking-wider leading-tight">{step.name}</span>
-                        <span className="text-base font-black">{step.val}</span>
-                      </div>
-                    ))}
+                    {(apiData?.certificationFunnel || [
+                      { name: "Assigned", count: 520 },
+                      { name: "Enrolled", count: 410 },
+                      { name: "Started", count: 320 },
+                      { name: "Completed", count: 240 },
+                      { name: "Submitted", count: 215 },
+                      { name: "Approved in Zoho", count: 195 }
+                    ]).map((step, idx) => {
+                      let color = "bg-primary/10 text-primary border border-primary/20";
+                      if (idx === 0) color = "bg-gray-100 text-foreground";
+                      else if (idx === 5) color = "bg-emerald-100 text-emerald-800 border border-emerald-200";
+                      return (
+                        <div key={idx} className={`p-3 rounded-xl flex flex-col justify-between h-28 ${color} shadow-xs`}>
+                          <span className="text-[10px] font-bold uppercase tracking-wider leading-tight">{step.name}</span>
+                          <span className="text-base font-black">{step.count || step.val}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardBody>
               </Card>
@@ -1136,24 +1281,28 @@ export default function LeadershipAnalyticsPage() {
                     High Demand Certifications
                   </span>
                   <div className="space-y-3">
-                    {[
-                      { name: "Databricks", count: 48, color: "bg-primary" },
-                      { name: "AWS (Amazon Cloud)", count: 35, color: "bg-accent" },
-                      { name: "Microsoft Azure", count: 28, color: "bg-blue-600" },
-                      { name: "Google Cloud (GCP)", count: 18, color: "bg-amber-500" },
-                      { name: "Snowflake", count: 15, color: "bg-sky-400" },
-                      { name: "PMP", count: 8, color: "bg-cta" }
-                    ].map((tech, idx) => (
-                      <div key={idx} className="space-y-1 text-xs">
-                        <div className="flex justify-between font-semibold">
-                          <span>{tech.name}</span>
-                          <span>{tech.count} completed</span>
+                    {(apiData?.highDemandCertifications || [
+                      { name: "Databricks", value: 48 },
+                      { name: "AWS (Amazon Cloud)", value: 35 },
+                      { name: "Microsoft Azure", value: 28 },
+                      { name: "Google Cloud (GCP)", value: 18 },
+                      { name: "Snowflake", value: 15 },
+                      { name: "PMP", value: 8 }
+                    ]).map((tech, idx) => {
+                      const colors = ["bg-primary", "bg-accent", "bg-blue-600", "bg-amber-500", "bg-sky-400", "bg-cta"];
+                      const val = tech.value || tech.count;
+                      return (
+                        <div key={idx} className="space-y-1 text-xs">
+                          <div className="flex justify-between font-semibold">
+                            <span>{tech.name}</span>
+                            <span>{val} completed</span>
+                          </div>
+                          <div className="h-2 bg-gray-150 rounded-full overflow-hidden">
+                            <div className={`h-full ${colors[idx % colors.length]}`} style={{ width: `${(val / 48) * 100}%` }} />
+                          </div>
                         </div>
-                        <div className="h-2 bg-gray-150 rounded-full overflow-hidden">
-                          <div className={`h-full ${tech.color}`} style={{ width: `${(tech.count / 48) * 100}%` }} />
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardBody>
               </Card>
@@ -1171,15 +1320,15 @@ export default function LeadershipAnalyticsPage() {
                   <div className="space-y-2">
                     <h4 className="font-extrabold text-foreground">Certifications by Region</h4>
                     <div className="divide-y divide-border/60">
-                      {[
-                        { name: "India Center", certs: 185 },
-                        { name: "Netherlands Center", certs: 64 },
-                        { name: "USA Center", certs: 58 },
-                        { name: "UK Center", certs: 43 }
-                      ].map((item, idx) => (
+                      {Object.entries(apiData?.certificationsByRegion || {
+                        "India Center": 185,
+                        "Netherlands Center": 64,
+                        "USA Center": 58,
+                        "UK Center": 43
+                      }).map(([k, v], idx) => (
                         <div key={idx} className="flex justify-between py-2">
-                          <span className="font-semibold">{item.name}</span>
-                          <span className="font-mono text-text-muted">{item.certs} completed</span>
+                          <span className="font-semibold">{k}</span>
+                          <span className="font-mono text-text-muted">{String(v)} completed</span>
                         </div>
                       ))}
                     </div>
@@ -1189,15 +1338,15 @@ export default function LeadershipAnalyticsPage() {
                   <div className="space-y-2">
                     <h4 className="font-extrabold text-foreground">Certifications by Project</h4>
                     <div className="divide-y divide-border/60">
-                      {[
-                        { name: "Project Alpha", certs: 42 },
-                        { name: "Project Orion", certs: 38 },
-                        { name: "Project Sirius", certs: 24 },
-                        { name: "Project Polaris", certs: 18 }
-                      ].map((item, idx) => (
+                      {Object.entries(apiData?.certificationsByProject || {
+                        "Project Alpha": 42,
+                        "Project Orion": 38,
+                        "Project Sirius": 24,
+                        "Project Polaris": 18
+                      }).map(([k, v], idx) => (
                         <div key={idx} className="flex justify-between py-2">
-                          <span className="font-semibold">{item.name}</span>
-                          <span className="font-mono text-text-muted">{item.certs} completed</span>
+                          <span className="font-semibold">{k}</span>
+                          <span className="font-mono text-text-muted">{String(v)} completed</span>
                         </div>
                       ))}
                     </div>
@@ -1207,15 +1356,15 @@ export default function LeadershipAnalyticsPage() {
                   <div className="space-y-2">
                     <h4 className="font-extrabold text-foreground">Certifications by Employee Grade</h4>
                     <div className="divide-y divide-border/60">
-                      {[
-                        { name: "Consultants", certs: 142 },
-                        { name: "Senior Consultants", certs: 108 },
-                        { name: "Tech Leads", certs: 64 },
-                        { name: "Principal Architects", certs: 36 }
-                      ].map((item, idx) => (
+                      {Object.entries(apiData?.certificationsByEmployeeGrade || {
+                        "Consultants": 142,
+                        "Senior Consultants": 108,
+                        "Tech Leads": 64,
+                        "Principal Architects": 36
+                      }).map(([k, v], idx) => (
                         <div key={idx} className="flex justify-between py-2">
-                          <span className="font-semibold">{item.name}</span>
-                          <span className="font-mono text-text-muted">{item.certs} completed</span>
+                          <span className="font-semibold">{k}</span>
+                          <span className="font-mono text-text-muted">{String(v)} completed</span>
                         </div>
                       ))}
                     </div>
@@ -1230,39 +1379,39 @@ export default function LeadershipAnalyticsPage() {
         {activeTab === "flagship" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                { name: "YMP (Young Managers Program)", enroll: 60, progress: 95, hours: 240, rating: 4.8, certs: 42 },
-                { name: "Quantum Shift", enroll: 45, progress: 80, hours: 180, rating: 4.6, certs: 28 },
-                { name: "Tech AI Thon", enroll: 240, progress: 100, hours: 480, rating: 4.9, certs: 85 },
-                { name: "Databricks Program", enroll: 80, progress: 75, hours: 320, rating: 4.7, certs: 38 },
-                { name: "GCV Certification Program", enroll: 35, progress: 60, hours: 140, rating: 4.4, certs: 15 },
-                { name: "Kiro Learning Initiative", enroll: 150, progress: 88, hours: 300, rating: 4.5, certs: 52 },
-                { name: "Copilot Learning Initiative", enroll: 180, progress: 92, hours: 360, rating: 4.8, certs: 70 }
-              ].map((prog, idx) => (
+              {(apiData || [
+                { programName: "YMP (Young Managers Program)", participants: 60, completionPercentage: 95, learningHours: 240, feedbackScore: 4.8, certificationsAchieved: 42 },
+                { programName: "Quantum Shift", participants: 45, completionPercentage: 80, learningHours: 180, feedbackScore: 4.6, certificationsAchieved: 28 },
+                { programName: "Tech AI Thon", participants: 240, completionPercentage: 100, learningHours: 480, feedbackScore: 4.9, certificationsAchieved: 85 },
+                { programName: "Databricks Program", participants: 80, completionPercentage: 75, learningHours: 320, feedbackScore: 4.7, certificationsAchieved: 38 },
+                { programName: "GCV Certification Program", participants: 35, completionPercentage: 60, learningHours: 140, feedbackScore: 4.4, certificationsAchieved: 15 },
+                { programName: "Kiro Learning Initiative", participants: 150, completionPercentage: 88, learningHours: 300, feedbackScore: 4.5, certificationsAchieved: 52 },
+                { programName: "Copilot Learning Initiative", participants: 180, completionPercentage: 92, learningHours: 360, feedbackScore: 4.8, certificationsAchieved: 70 }
+              ]).map((prog, idx) => (
                 <Card key={idx} className="hoverable border border-border/80 flex flex-col justify-between" hoverable>
                   <CardBody className="p-5 space-y-4">
                     <span className="px-2.5 py-0.5 bg-primary/10 border border-primary/20 rounded-md text-[9px] font-black text-primary uppercase tracking-wider inline-block">
                       Flagship Program
                     </span>
-                    <h3 className="text-sm font-black text-foreground leading-snug line-clamp-1">{prog.name}</h3>
+                    <h3 className="text-sm font-black text-foreground leading-snug line-clamp-1">{prog.programName || prog.name}</h3>
                     <div className="grid grid-cols-3 gap-2 text-center text-xs pt-1">
                       <div className="bg-gray-50 border border-border p-2 rounded-lg">
-                        <span className="block font-black text-foreground">{prog.enroll}</span>
+                        <span className="block font-black text-foreground">{prog.participants}</span>
                         <span className="text-[9px] font-bold text-text-muted">Participants</span>
                       </div>
                       <div className="bg-gray-50 border border-border p-2 rounded-lg">
-                        <span className="block font-black text-foreground">{prog.progress}%</span>
+                        <span className="block font-black text-foreground">{prog.completionPercentage}%</span>
                         <span className="text-[9px] font-bold text-text-muted">Completion</span>
                       </div>
                       <div className="bg-gray-50 border border-border p-2 rounded-lg">
-                        <span className="block font-black text-foreground">{prog.hours}</span>
+                        <span className="block font-black text-foreground">{Math.round(prog.learningHours)}</span>
                         <span className="text-[9px] font-bold text-text-muted">Hours</span>
                       </div>
                     </div>
                   </CardBody>
                   <div className="bg-gray-50/50 border-t border-border px-5 py-3 flex justify-between text-[10px] text-text-muted font-bold uppercase tracking-wider">
-                    <span>Feedback: {prog.rating} / 5.0</span>
-                    <span>Certs: {prog.certs}</span>
+                    <span>Feedback: {prog.feedbackScore} / 5.0</span>
+                    <span>Certs: {prog.certificationsAchieved}</span>
                   </div>
                 </Card>
               ))}
@@ -1303,13 +1452,12 @@ export default function LeadershipAnalyticsPage() {
                   </div>
                   <div className="divide-y divide-border text-xs">
                     {[
-                      { metric: "Sessions Conducted", current: kpis.sessions, prev: Math.round(kpis.sessions * 0.85), growth: "+15.0%" },
-                      { metric: "Employees Trained", current: kpis.trained, prev: Math.round(kpis.trained * 0.88), growth: "+12.0%" },
-                      { metric: "Learning Hours Logged", current: kpis.learningHours, prev: Math.round(kpis.learningHours * 0.82), growth: "+18.2%" },
-                      { metric: "Certifications Achieved", current: kpis.certsCompleted, prev: Math.round(kpis.certsCompleted * 0.9), growth: `+${kpis.certGrowth}%` },
-                      { metric: "AI Learning Growth", current: kpis.aiLearningHours, prev: Math.round(kpis.aiLearningHours * 0.65), growth: "+35.4%" }
+                      { metric: "Sessions Conducted", current: executiveMetrics.sessions, prev: Math.round(executiveMetrics.sessions * 0.85), growth: "+15.0%" },
+                      { metric: "Employees Trained", current: executiveMetrics.trained, prev: Math.round(executiveMetrics.trained * 0.88), growth: "+12.0%" },
+                      { metric: "Learning Hours Logged", current: executiveMetrics.learningHours, prev: Math.round(executiveMetrics.learningHours * 0.82), growth: "+18.2%" },
+                      { metric: "Certifications Achieved", current: executiveMetrics.certsCompleted, prev: Math.round(executiveMetrics.certsCompleted * 0.9), growth: `+${executiveMetrics.certGrowth}%` },
+                      { metric: "AI Learning Growth", current: executiveMetrics.aiLearningHours, prev: Math.round(executiveMetrics.aiLearningHours * 0.65), growth: "+35.4%" }
                     ].map((row, idx) => {
-                      // Adjust based on MoM/YoY tabs
                       let multiplier = trendView === "MoM" ? 0.35 : trendView === "YoY" ? 2.8 : 1.0;
                       let currVal = Math.round(row.current * multiplier);
                       let prevVal = Math.round(row.prev * multiplier);
@@ -1341,19 +1489,19 @@ export default function LeadershipAnalyticsPage() {
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="bg-gray-50 p-3 rounded-xl border border-border/80">
                       <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">Training Growth</span>
-                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+12.0%</span>
+                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+{apiData?.trainingGrowthPercentage || "12.0"}%</span>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-xl border border-border/80">
                       <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">Learner Growth</span>
-                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+14.2%</span>
+                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+{apiData?.learnerGrowthPercentage || "14.2"}%</span>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-xl border border-border/80">
                       <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">Certification Growth</span>
-                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+{kpis.certGrowth}%</span>
+                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+{apiData?.certificationGrowthPercentage || "15.4"}%</span>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-xl border border-border/80">
                       <span className="text-[9px] font-black text-text-muted uppercase tracking-wider">AI Adoption Growth</span>
-                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+35.4%</span>
+                      <span className="text-lg font-black text-emerald-600 block font-mono mt-1">+{apiData?.aiAdoptionGrowthPercentage || "35.4"}%</span>
                     </div>
                   </div>
                 </CardBody>
@@ -1370,27 +1518,27 @@ export default function LeadershipAnalyticsPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center text-xs">
                     <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
                       <span className="text-text-muted font-bold block">Feedback Score</span>
-                      <span className="text-xl font-black text-primary font-mono mt-1.5 block">{kpis.avgFeedback} / 5.0</span>
+                      <span className="text-xl font-black text-primary font-mono mt-1.5 block">{apiData?.feedbackScore || executiveMetrics.avgFeedback} / 5.0</span>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
                       <span className="text-text-muted font-bold block">Trainer Rating</span>
-                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">4.8 / 5.0</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">{apiData?.trainerRating || "4.8"} / 5.0</span>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
                       <span className="text-text-muted font-bold block">Session Rating</span>
-                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">4.7 / 5.0</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">{apiData?.sessionRating || "4.7"} / 5.0</span>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
                       <span className="text-text-muted font-bold block">Recommendation %</span>
-                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">{kpis.recommendPercent}%</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">{apiData?.recommendationPercentage || executiveMetrics.recommendPercent}%</span>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
                       <span className="text-text-muted font-bold block">Attendance %</span>
-                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">88%</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">{apiData?.attendancePercentage || "88"}%</span>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-xl border border-border/80">
                       <span className="text-text-muted font-bold block">Completion %</span>
-                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">84%</span>
+                      <span className="text-xl font-black text-foreground font-mono mt-1.5 block">{apiData?.completionPercentage || "84"}%</span>
                     </div>
                   </div>
                 </CardBody>
@@ -1405,15 +1553,21 @@ export default function LeadershipAnalyticsPage() {
                   <div className="space-y-3.5 text-xs">
                     <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl space-y-1">
                       <span className="font-extrabold text-primary block">⭐ Best Rated Trainings</span>
-                      <p className="font-bold text-foreground">React Server Components (RSC) and Databricks Advanced SQL Workshop</p>
+                      <p className="font-bold text-foreground">
+                        {apiData?.bestRatedTrainings?.[0] || "React Server Components (RSC)"} and {apiData?.bestRatedTrainings?.[1] || "Databricks Advanced SQL Workshop"}
+                      </p>
                     </div>
                     <div className="p-3 bg-accent/5 border border-accent/20 rounded-xl space-y-1">
                       <span className="font-extrabold text-accent block">👨‍🏫 Best Rated Trainers</span>
-                      <p className="font-bold text-foreground">Amit Verma (AI practice) and Priyanka Sharma (Next.js consultant)</p>
+                      <p className="font-bold text-foreground">
+                        {apiData?.bestRatedTrainers?.[0] || "Amit Verma (AI practice)"} and {apiData?.bestRatedTrainers?.[1] || "Priyanka Sharma (Next.js consultant)"}
+                      </p>
                     </div>
                     <div className="p-3 bg-cta/5 border border-cta/20 rounded-xl space-y-1">
                       <span className="font-extrabold text-cta block">🔥 Most Impactful Program</span>
-                      <p className="font-bold text-foreground">Young Managers Program (YMP) and Tech AI Thon certification tracks</p>
+                      <p className="font-bold text-foreground">
+                        {apiData?.mostImpactfulPrograms?.[0] || "Young Managers Program (YMP)"} and {apiData?.mostImpactfulPrograms?.[1] || "Tech AI Thon certification tracks"}
+                      </p>
                     </div>
                   </div>
                 </CardBody>
@@ -1435,22 +1589,27 @@ export default function LeadershipAnalyticsPage() {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                     {[
-                      { category: "Top Learner of the Quarter", name: "Priyanka Sharma", details: "48 hours logged", tag: "🏆 Quarterly Champion" },
-                      { category: "Top AI Learner", name: "Amit Patel", details: "GenAI pathway completed", tag: "🤖 AI Champion" },
-                      { category: "Top Certified Employee", name: "Siddharth Verma", details: "3 external certs synced", tag: "🎓 Zoho Certified" },
-                      { category: "Learning Champion", name: "Alex Jones", details: "Conducted 12 cloud sessions", tag: "🌟 Team Champion" }
-                    ].map((badge, idx) => (
-                      <div key={idx} className="bg-gray-50 border border-border/80 rounded-xl p-4 space-y-2">
-                        <span className="text-[9px] font-black text-text-muted uppercase tracking-wider block">
-                          {badge.category}
-                        </span>
-                        <h4 className="text-sm font-extrabold text-foreground leading-tight">{badge.name}</h4>
-                        <p className="text-xs text-text-muted leading-tight">{badge.details}</p>
-                        <span className="inline-block px-2 py-0.5 bg-primary/10 border border-primary/20 text-[9px] font-black text-primary rounded-md uppercase tracking-wider mt-1.5">
-                          {badge.tag}
-                        </span>
-                      </div>
-                    ))}
+                      { category: "Top Learner of the Quarter", key: "topLearnerOfQuarter", defaultName: "Priyanka Sharma", defaultDetails: "48 hours logged", tag: "🏆 Quarterly Champion" },
+                      { category: "Top AI Learner", key: "topAILearner", defaultName: "Amit Patel", defaultDetails: "GenAI pathway completed", tag: "🤖 AI Champion" },
+                      { category: "Top Certified Employee", key: "topCertifiedEmployee", defaultName: "Siddharth Verma", defaultDetails: "3 external certs synced", tag: "🎓 Zoho Certified" },
+                      { category: "Learning Champion", key: "learningChampion", defaultName: "Alex Jones", defaultDetails: "Conducted 12 cloud sessions", tag: "🌟 Team Champion" }
+                    ].map((badge, idx) => {
+                      const name = apiData?.[badge.key]?.name || badge.defaultName;
+                      const details = apiData?.[badge.key]?.details || badge.defaultDetails;
+                      const tag = apiData?.[badge.key]?.tag || badge.tag;
+                      return (
+                        <div key={idx} className="bg-gray-50 border border-border/80 rounded-xl p-4 space-y-2">
+                          <span className="text-[9px] font-black text-text-muted uppercase tracking-wider block">
+                            {badge.category}
+                          </span>
+                          <h4 className="text-sm font-extrabold text-foreground leading-tight">{name}</h4>
+                          <p className="text-xs text-text-muted leading-tight">{details}</p>
+                          <span className="inline-block px-2 py-0.5 bg-primary/10 border border-primary/20 text-[9px] font-black text-primary rounded-md uppercase tracking-wider mt-1.5">
+                            {tag}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardBody>
               </Card>
@@ -1462,27 +1621,27 @@ export default function LeadershipAnalyticsPage() {
                     Project Learning Investment Dashboard
                   </span>
                   <div className="divide-y divide-border text-xs">
-                    {[
-                      { project: "Project Alpha", trained: 48, hours: 240, certs: 18, ai: 85, invest: "94%" },
-                      { project: "Project Orion", trained: 35, hours: 195, certs: 12, ai: 78, invest: "88%" },
-                      { project: "Project Sirius", trained: 22, hours: 110, certs: 6, ai: 62, invest: "72%" },
-                      { project: "Project Polaris", trained: 18, hours: 95, certs: 5, ai: 54, invest: "65%" },
-                      { project: "Project Zenith", trained: 12, hours: 78, certs: 4, ai: 48, invest: "58%" }
-                    ].map((row, idx) => (
+                    {(apiData?.projectInvestment || [
+                      { project: "Project Alpha", employeesTrained: 48, learningHours: 240, certifications: 18, aiReadinessScore: 85, trainingCoveragePercentage: 94 },
+                      { project: "Project Orion", employeesTrained: 35, learningHours: 195, certifications: 12, aiReadinessScore: 78, trainingCoveragePercentage: 88 },
+                      { project: "Project Sirius", employeesTrained: 22, learningHours: 110, certifications: 6, aiReadinessScore: 62, trainingCoveragePercentage: 72 },
+                      { project: "Project Polaris", employeesTrained: 18, learningHours: 95, certifications: 5, aiReadinessScore: 54, trainingCoveragePercentage: 65 },
+                      { project: "Project Zenith", employeesTrained: 12, learningHours: 78, certifications: 4, aiReadinessScore: 48, trainingCoveragePercentage: 58 }
+                    ]).map((row, idx) => (
                       <div key={idx} className="flex justify-between py-3 items-center">
                         <div>
                           <span className="font-bold block text-foreground">{row.project}</span>
                           <span className="text-[10px] text-text-muted font-bold font-mono">
-                            {row.trained} trained ({row.hours}h) | Certs: {row.certs}
+                            {row.employeesTrained} trained ({Math.round(row.learningHours)}h) | Certs: {row.certifications}
                           </span>
                         </div>
                         <div className="flex items-center gap-6 font-semibold">
                           <div className="text-right">
-                            <span className="block font-black text-foreground font-mono">{row.invest}</span>
+                            <span className="block font-black text-foreground font-mono">{row.trainingCoveragePercentage || row.invest}%</span>
                             <span className="text-[9px] font-bold text-text-muted">Coverage</span>
                           </div>
                           <div className="text-right">
-                            <span className="block font-black text-accent font-mono">{row.ai}/100</span>
+                            <span className="block font-black text-accent font-mono">{row.aiReadinessScore || row.ai}/100</span>
                             <span className="text-[9px] font-bold text-text-muted">AI Score</span>
                           </div>
                         </div>
@@ -1504,36 +1663,41 @@ export default function LeadershipAnalyticsPage() {
                   Fresher / Apprentice Journey Dashboard
                 </span>
                 <div className="grid grid-cols-6 gap-2 text-center text-xs pt-4">
-                  {[
-                    { name: "Campus Hiring", val: 120, pct: "100%", color: "bg-gray-100 text-foreground" },
-                    { name: "Training Enrollment", val: 120, pct: "100%", color: "bg-primary/10 text-primary border border-primary/20" },
-                    { name: "Training Completion", val: 108, pct: "90%", color: "bg-primary/20 text-primary border border-primary/30" },
-                    { name: "Certification Completion", val: 84, pct: "70%", color: "bg-primary/30 text-primary border border-primary/45" },
-                    { name: "Project Allocation", val: 78, pct: "65%", color: "bg-accent/20 text-accent border border-accent/30" },
-                    { name: "Billable Deployment", val: 72, pct: "60%", color: "bg-emerald-100 text-emerald-800 border border-emerald-200" }
-                  ].map((step, idx) => (
-                    <div key={idx} className={`p-3 rounded-xl flex flex-col justify-between h-32 ${step.color} shadow-xs`}>
-                      <span className="text-[10px] font-bold uppercase tracking-wider leading-tight">{step.name}</span>
-                      <div>
-                        <span className="text-lg font-black block">{step.val}</span>
-                        <span className="text-[10px] font-mono block mt-1">{step.pct}</span>
+                  {(apiData?.journeyFunnel || [
+                    { name: "Campus Hiring", count: 120, percentage: 100 },
+                    { name: "Training Enrollment", count: 120, percentage: 100 },
+                    { name: "Training Completion", count: 108, percentage: 90 },
+                    { name: "Certification Completion", count: 84, percentage: 70 },
+                    { name: "Project Allocation", count: 78, percentage: 65 },
+                    { name: "Billable Deployment", count: 72, percentage: 60 }
+                  ]).map((step, idx) => {
+                    let color = "bg-primary/10 text-primary border border-primary/20";
+                    if (idx === 0) color = "bg-gray-100 text-foreground";
+                    else if (idx === 5) color = "bg-emerald-100 text-emerald-800 border border-emerald-200";
+                    return (
+                      <div key={idx} className={`p-3 rounded-xl flex flex-col justify-between h-32 ${color} shadow-xs`}>
+                        <span className="text-[10px] font-bold uppercase tracking-wider leading-tight">{step.name}</span>
+                        <div>
+                          <span className="text-lg font-black block">{step.count || step.val}</span>
+                          <span className="text-[10px] font-mono block mt-1">{step.percentage || step.pct}%</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="bg-gray-50 border border-border/50 rounded-xl p-4 grid grid-cols-3 gap-6 text-xs text-center mt-4">
                   <div>
                     <span className="text-text-muted font-bold block">Freshers Hired</span>
-                    <span className="text-xl font-black text-foreground font-mono mt-1 block">120 Hires</span>
+                    <span className="text-xl font-black text-foreground font-mono mt-1 block">{apiData?.freshersHired || 120} Hires</span>
                   </div>
                   <div>
                     <span className="text-text-muted font-bold block">Deployment %</span>
-                    <span className="text-xl font-black text-emerald-600 font-mono mt-1 block">60%</span>
+                    <span className="text-xl font-black text-emerald-600 font-mono mt-1 block">{apiData?.deploymentPercentage || 60}%</span>
                   </div>
                   <div>
                     <span className="text-text-muted font-bold block">Time to Deployment</span>
-                    <span className="text-xl font-black text-foreground font-mono mt-1 block">45 Days</span>
+                    <span className="text-xl font-black text-foreground font-mono mt-1 block">{apiData?.timeToDeployment || 45} Days</span>
                   </div>
                 </div>
               </CardBody>
@@ -1559,19 +1723,23 @@ export default function LeadershipAnalyticsPage() {
                     <div className="space-y-1">
                       <div className="flex justify-between font-bold text-foreground">
                         <span>Current Skills vs Required Skills</span>
-                        <span>82% match</span>
+                        <span>{apiData?.currentSkillsVsRequiredSkills || 82}% match</span>
                       </div>
                       <div className="h-2 bg-gray-250 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary" style={{ width: "82%" }} />
+                        <div className="h-full bg-primary" style={{ width: `${apiData?.currentSkillsVsRequiredSkills || 82}%` }} />
                       </div>
                     </div>
                     <div className="pt-1 flex justify-between font-bold">
                       <span>Skill Gap by Project:</span>
-                      <span className="text-primary font-mono">-12% React</span>
+                      <span className="text-primary font-mono">
+                        {apiData?.skillGapByProject?.[0]?.name || "React"} {apiData?.skillGapByProject?.[0]?.value || -12}%
+                      </span>
                     </div>
                     <div className="flex justify-between font-bold">
                       <span>Skill Gap by Practice:</span>
-                      <span className="text-primary font-mono">-18% Databricks</span>
+                      <span className="text-primary font-mono">
+                        {apiData?.skillGapByPractice?.[0]?.name || "Databricks"} {apiData?.skillGapByPractice?.[0]?.value || -18}%
+                      </span>
                     </div>
                   </div>
                 </CardBody>
@@ -1589,13 +1757,13 @@ export default function LeadershipAnalyticsPage() {
                   </p>
                   <div className="space-y-2 pt-2 opacity-60 text-[11px] font-bold text-foreground">
                     <div className="p-2 bg-white rounded-lg border border-accent/20">
-                      💡 Suggested Courses: Next.js App Router Masterclass
+                      💡 Suggested: {apiData?.suggestedCourses?.[0] || "Next.js App Router Masterclass"}
                     </div>
                     <div className="p-2 bg-white rounded-lg border border-accent/20">
-                      💡 Suggested Certifications: Databricks Certified Engineer
+                      💡 Suggested Certs: {apiData?.suggestedCertifications?.[0] || "Databricks Certified Engineer"}
                     </div>
                     <div className="p-2 bg-white rounded-lg border border-accent/20">
-                      💡 Suggested Career Path Learning: Solutions Architect Track
+                      💡 Career Learning: {apiData?.suggestedCareerPathLearning?.[0] || "Solutions Architect Track"}
                     </div>
                   </div>
                 </CardBody>
@@ -1613,16 +1781,16 @@ export default function LeadershipAnalyticsPage() {
                   </p>
                   <div className="space-y-2 pt-2 opacity-60 text-xs">
                     <div className="flex justify-between font-bold">
-                      <span>Certification Completion Prediction:</span>
-                      <span className="text-cta font-mono">82% on-time</span>
+                      <span>Cert Completion Prediction:</span>
+                      <span className="text-cta font-mono">{apiData?.certificationCompletionPrediction || 82}% on-time</span>
                     </div>
                     <div className="flex justify-between font-bold">
                       <span>Learning Risk Indicators:</span>
-                      <span className="text-cta font-mono">5 high-risk profiles</span>
+                      <span className="text-cta font-mono">{apiData?.learningRiskIndicators || 5} profiles</span>
                     </div>
                     <div className="flex justify-between font-bold">
                       <span>AI Readiness Forecast:</span>
-                      <span className="text-cta font-mono">92% by Q4 2026</span>
+                      <span className="text-cta font-mono">{apiData?.aiReadinessForecast || 92}% by Q4 2026</span>
                     </div>
                   </div>
                 </CardBody>

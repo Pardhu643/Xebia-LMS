@@ -29,7 +29,19 @@ export const apiStatus = {
   },
 };
 
-// React hook to get backend connection status
+// Centralized reset function on login
+public_api_reset_offline();
+function public_api_reset_offline() {
+  isBackendOffline = USE_MOCK_API;
+  loggedFailure = false;
+}
+
+export function resetOfflineStatus() {
+  public_api_reset_offline();
+  apiStatus.notify();
+}
+
+// React hook to get centralized data mode and fallbacks
 import { useState, useEffect } from "react";
 export function useApiStatus() {
   const [offline, setOffline] = useState(isBackendOffline);
@@ -44,8 +56,36 @@ export function useApiStatus() {
   return offline;
 }
 
+export function useDataMode() {
+  const [mode, setMode] = useState("REAL_MODE");
+  const [offline, setOffline] = useState(isBackendOffline);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setMode(localStorage.getItem("LMS_DATA_MODE") || "REAL_MODE");
+    }
+    setOffline(isBackendOffline);
+
+    return apiStatus.subscribe((status) => {
+      setOffline(status);
+      if (typeof window !== "undefined") {
+        setMode(localStorage.getItem("LMS_DATA_MODE") || "REAL_MODE");
+      }
+    });
+  }, []);
+
+  const isDemoMode = mode === "DEMO_MODE" || offline;
+  const isFallback = mode === "REAL_MODE" && offline;
+
+  return { isDemoMode, isFallback, mode };
+}
+
 // Helper to check network connectivity or resolve local storage fallback
 async function request(url, options = {}) {
+  if (typeof window !== "undefined" && localStorage.getItem("LMS_DATA_MODE") === "DEMO_MODE") {
+    return null;
+  }
+
   if (isBackendOffline || USE_MOCK_API) {
     return null;
   }
@@ -80,6 +120,7 @@ async function request(url, options = {}) {
 
     return JSON.parse(responseText);
   } catch (error) {
+    console.error(`Spring Boot API failure at URL ${url}:`, error);
     if (!isBackendOffline) {
       isBackendOffline = true;
       if (!loggedFailure) {

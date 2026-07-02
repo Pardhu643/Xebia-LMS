@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
-import { useApiStatus } from "../../services/api";
+import { useDataMode } from "../../services/api";
 
 export default function DashboardLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const isOffline = useApiStatus();
+  const { isDemoMode, isFallback } = useDataMode();
 
   // Sync state with localStorage on mount
   useEffect(() => {
@@ -51,8 +51,16 @@ export default function DashboardLayout({ children }) {
           onMenuToggle={() => setMobileOpen(true)}
           collapsed={collapsed}
           onCollapseToggle={handleCollapseToggle}
-          isOffline={isOffline}
+          isOffline={isDemoMode}
         />
+
+        {/* Warning notification banner if fallback occurs */}
+        {isFallback && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3.5 flex items-center gap-2.5 text-xs font-bold text-amber-800 animate-fadeIn">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping flex-shrink-0" />
+            <span>Spring Boot backend is currently offline. Falling back to local simulation data.</span>
+          </div>
+        )}
 
         {/* Scrollable pane */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden">

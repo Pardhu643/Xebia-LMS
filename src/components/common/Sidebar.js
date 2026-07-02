@@ -140,7 +140,12 @@ export default function Sidebar({ isOpen, onClose, collapsed, onCollapseToggle }
           </div>
           
           <button
-            onClick={() => signOut({ callbackUrl: "/signin" })}
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                localStorage.removeItem("LMS_DATA_MODE");
+              }
+              signOut({ callbackUrl: "/signin" });
+            }}
             className={`flex items-center gap-2.5 py-2.5 border border-border text-foreground hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 rounded-xl text-sm font-bold transition-all duration-300 cursor-pointer ${
               collapsed ? "px-2 justify-center border-transparent hover:bg-rose-50" : "px-4"
             } w-full`}

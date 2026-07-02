@@ -8,6 +8,7 @@ import Image from "next/image";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import Card, { CardBody } from "../../components/common/Card";
+import { resetOfflineStatus } from "../../services/api";
 
 function LoginForm() {
   const router = useRouter();
@@ -19,6 +20,7 @@ function LoginForm() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [isDemoLogin, setIsDemoLogin] = useState(false);
   const errorParam = searchParams.get("error");
   const routeAuthError = errorParam === "CredentialsSignin"
     ? "Invalid username or password credentials. Please try again."
@@ -66,6 +68,14 @@ function LoginForm() {
       if (result?.error) {
         setAuthError("Invalid email or password. Use the demo credentials below.");
       } else {
+        resetOfflineStatus();
+        if (typeof window !== "undefined") {
+          if (isDemoLogin) {
+            localStorage.setItem("LMS_DATA_MODE", "DEMO_MODE");
+          } else {
+            localStorage.setItem("LMS_DATA_MODE", "REAL_MODE");
+          }
+        }
         router.push("/dashboard");
       }
     } catch (err) {
@@ -80,6 +90,7 @@ function LoginForm() {
     setPassword(demoPass);
     setErrors({});
     setAuthError("");
+    setIsDemoLogin(true);
   };
 
   return (
@@ -120,7 +131,7 @@ function LoginForm() {
                 type="email"
                 placeholder="name@xebia.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setIsDemoLogin(false); }}
                 error={errors.email}
                 disabled={loading}
               />
@@ -132,7 +143,7 @@ function LoginForm() {
                 type="password"
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setIsDemoLogin(false); }}
                 error={errors.password}
                 disabled={loading}
               />

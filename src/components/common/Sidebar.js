@@ -15,7 +15,8 @@ import {
   UserPlus,
   BarChart3,
   Shield,
-  Settings
+  Settings,
+  TrendingUp
 } from "lucide-react";
 import SidebarLogo from "./SidebarLogo";
 import SidebarToggle from "./SidebarToggle";
@@ -44,6 +45,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onCollapseToggle }
     { name: "Content Builder", href: "/admin/content", icon: FileCode },
     { name: "Learner Credentials", href: "/admin/learners", icon: UserPlus },
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+    { name: "Leadership Analytics", href: "/admin/leadership-analytics", icon: TrendingUp },
     { name: "Roles & Permissions", href: "/admin/permissions", icon: Shield },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];

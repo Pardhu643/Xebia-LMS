@@ -1,0 +1,4 @@
+[deploy]
+healthcheckPath = "/api/actuator/health"
+healthcheckTimeout = 300
+startDetectionTimeout = 300

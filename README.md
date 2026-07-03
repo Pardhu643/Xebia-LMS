@@ -1,162 +1,154 @@
-# Xebia Enterprise LMS Portal - Frontend
+# Xebia Enterprise LMS Portal - Full-Stack Integrated Platform
 
-An enterprise-level learning management system (LMS) portal frontend built for Xebia Consultants and Tech Architects. This repository contains the complete user interface, modular widgets, layouts, routing, caching hooks, and SSI authentication flows. It is pre-configured to consume a Spring Boot REST backend or automatically run in standalone demo/mock mode using `localStorage`.
+An enterprise-grade, full-stack Learning Management System (LMS) portal designed for Xebia Consultants and Tech Architects. This monorepo integrates a **Next.js 16 App Router Frontend** with a **Spring Boot 2.7.x REST Backend**, featuring dynamic H2/MongoDB Atlas connectivity, Redis caching layers, role-based access controls, and a complete **Leadership Learning Analytics Dashboard**.
 
 ---
 
 ## 1. Tech Stack
-- **Framework**: Next.js (v16 App Router)
+
+### Frontend Client
+- **Framework**: Next.js (v16 App Router, Webpack/Turbopack)
 - **Runtime**: React (v19)
-- **Styling**: Tailwind CSS (v4)
-- **State Management & Caching**: Tanstack React Query (v5)
+- **Styling**: Vanilla CSS with Tailwind CSS v4 variables
+- **State Management**: Tanstack React Query (v5)
 - **Authentication**: NextAuth.js (v4)
-- **Icons**: Lucide React
+- **Visualizations**: Raw SVG elements styled dynamically
+
+### Backend Services
+- **Framework**: Spring Boot (v2.7.18) & Spring Web MVC
+- **Database**: H2 Database (local persistence & mock data seeding) / PostgreSQL (production-ready driver)
+- **Caching**: Spring Data Redis (Lettuce Client)
+- **Security**: Spring Security & BCrypt Password Encoding
+- **Build Tool**: Maven
 
 ---
 
 ## 2. Folder Structure
-The codebase is structured around clean system design principles with a highly modular and separation-of-concerns architecture:
 
 ```text
 xebia-lms-portal/
-├── src/
-│   ├── app/                 # App Router page nodes & layout shells
-│   │   ├── api/auth/        # NextAuth authentication credentials route
-│   │   ├── admin/           # Admin panel console view nodes
-│   │   ├── categories/      # Category pathways view nodes
-│   │   ├── courses/         # Courses listing catalog & details view nodes
-│   │   ├── learn/           # Interactive course lesson player view nodes
-│   │   ├── dashboard/       # Core cockpit dashboard page
-│   │   ├── signin/          # Login credentials SSO interface page
-│   │   ├── globals.css      # Base CSS stylesheet including custom fonts
-│   │   ├── layout.js        # Root html/body document wrapper
-│   │   └── not-found.js     # Custom branded 404 page
-│   ├── components/
-│   │   ├── common/          # Reusable shared blocks (Sidebar, Navbar, Button, Card, Modal, Input)
-│   │   └── content/         # ContentRenderer block formatting parser
+├── backend/                  # Spring Boot Maven Project
+│   ├── src/main/java/com/xebia/lms/
+│   │   ├── config/           # Security, Web MVC CORS Configurations
+│   │   ├── controller/       # Rest Controllers (Auth, Categories, Courses, Analytics)
+│   │   ├── model/            # JPA Data Models & Entities
+│   │   ├── repository/       # Spring Data JPA Repository Interfaces
+│   │   └── service/          # Business Services & Redis Caching
+│   ├── src/main/resources/
+│   │   └── application.properties # Spring configuration settings
+│   ├── pom.xml               # Maven Dependency Configuration
+│   └── mvnw.cmd              # Maven Wrapper Executable
+├── src/                      # Next.js App Router Source
+│   ├── app/                  # Route Node Pages & Layouts
+│   │   ├── admin/            # Administrator views & dashboards
+│   │   │   ├── analytics/    # Curriculum completion telemetry
+│   │   │   └── leadership-analytics/ # 12-section PDF-compliant analytics cockpit
+│   │   ├── dashboard/        # Learner cockpit dashboard
+│   │   ├── courses/          # Syllabus catalog & detail pages
+│   │   ├── learn/            # Interactive course lesson player
+│   │   └── signin/           # SSO interface page
+│   ├── components/common/    # Reusable UI widgets (Sidebar, Navbar, Cards)
 │   ├── services/
-│   │   ├── mockData.js      # Mock datasets (categories, courses, submodules, blocks)
-│   │   └── api.js           # Reusable API fetch wrappers and fallback handlers
-│   ├── hooks/               # Custom hooks for categories, courses, modules, submodules, contents
-│   ├── context/             # Global providers (QueryProvider, ToastProvider)
-│   └── middleware.js        # NextAuth protected routing middleware
-├── public/                  # Static brand assets (xebia-logo.png)
-├── .env.example             # Project configuration template
-├── package.json             # Package configuration
-├── next.config.mjs          # Next.js configurations
-└── tailwind.config.js       # Tailwind theme and custom color palettes config
+│   │   ├── api.js            # Fetch client hook, warning banners & modes
+│   │   └── mongodb.js        # Direct MongoDB client configs for syllabus data
+│   └── hooks/                # React Query hooks
+├── .env.example              # Frontend environment config template
+├── package.json              # Next.js package configurations
+└── tailwind.config.js        # Theme color variables
 ```
 
 ---
 
-## 3. Installation
+## 3. Environment Variables
 
-1. Clone the frontend project.
+To customize the frontend configuration, create a `.env` or `.env.local` file in the root directory:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_USE_MOCK_API=false
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-randomly-generated-nextauth-secret-key
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/employeeDB?retryWrites=true&w=majority
+```
+
+---
+
+## 4. Local Installation & Startup
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/Pardhu643/Xebia-LMS.git
+```
+
+### Step 2: Start the Backend (Spring Boot)
+1. Open a terminal and navigate to the `/backend` subdirectory:
+   ```bash
+   cd backend
+   ```
+2. Build and run the project:
+   ```bash
+   .\mvnw.cmd spring-boot:run
+   ```
+The backend server will start on [http://localhost:8080/api](http://localhost:8080/api). On startup, it automatically seeds H2 memory tables with 150+ employee records, trainings, sessions, and certifications.
+
+### Step 3: Start the Frontend (Next.js)
+1. Open a separate terminal pane in the root folder.
 2. Install node dependencies:
    ```bash
    npm install
    ```
+3. Launch the development server:
+   ```bash
+   npm run dev
+   ```
+The frontend application will be active at [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 4. Environment Variables
-To customize runtime configurations, copy `.env.example` to `.env.local`:
-```bash
-cp .env.example .env.local
-```
+## 5. System Design Details
 
-Define the variables in `.env.local`:
-- `NEXT_PUBLIC_API_URL`: The entrypoint URL of the Spring Boot REST API (default: `http://localhost:8080/api`).
-- `NEXT_PUBLIC_USE_MOCK_API`: Set to `true` to run the application in full Mock Demo Mode (bypasses all backend calls and reads/writes to `localStorage`). Set to `false` to communicate with the Spring Boot server.
-- `NEXTAUTH_URL`: The application URL (default: `http://localhost:3000`).
-- `NEXTAUTH_SECRET`: A secure randomly-generated key for signing sessions.
+### 5.1 Centralized Data Mode (`REAL_MODE` vs `DEMO_MODE`)
+The portal features a resilient client data provider mapping logic:
+* **Default Mode (`REAL_MODE`)**: Queries are routed directly to the local Spring Boot backend.
+* **Demo Mode (`DEMO_MODE`)**: Activated manually by clicking the **Learner Account** or **Admin Account** buttons on the sign-in page. It bypasses backend queries, rendering mock calculations and loading a `Demo Mode` pill in the header.
+* **Automatic Fallback Banners**: If the Spring Boot backend server goes offline while in `REAL_MODE`, the client logs the API failure to the console and automatically displays a visible banner warning:
+  `⚠️ Spring Boot backend is currently offline. Falling back to local simulation data.`
+* **Sign-Out Cleansing**: Logging out of the application deletes data mode keys from `localStorage` to reset defaults.
+
+### 5.2 Redis Caching Layer
+* Implemented in the backend `RedisCacheService` using Lettuce configurations.
+* Caches serialized response payloads of all analytics controllers for **5 minutes (300-second TTL)**.
+* **Resilient Connection Fallbacks**: If the local Redis server is offline or unreachable, connection errors are caught safely. The backend service logs the timeout warning and routes queries directly to H2 database operations with zero application crashes.
 
 ---
 
-## 5. Running the Project
+## 6. REST API Endpoints Mapping
 
-To launch the local development server:
-```bash
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+All analytics endpoints map under the context path `/api/analytics/*`:
 
-### Development Login Credentials (Demo SSO Mode)
+| Endpoint Method | Route URL Path | Purpose / Description |
+| :---: | :--- | :--- |
+| **GET** | `/analytics/executive-summary` | Overall KPI aggregates (Total headcounts, Nominated vs Trained counts, CSAT satisfaction scores). |
+| **GET** | `/analytics/learning-coverage` | Region-wise visual coverage, project-wise participation heatmaps, and quarterly indicators. |
+| **GET** | `/analytics/learning-hours` | Total learning hours, average hour ratios, and Top 10 active learners/regions/projects. |
+| **GET** | `/analytics/learning-pillars` | Upskilling, compliance, and flagship program category hours distribution. |
+| **GET** | `/analytics/ai-transformation` | AI transformation readiness index, adoption funnels, and tool usage metrics. |
+| **GET** | `/analytics/certifications` | Zoho approved, pending, and rejected certifications indexed by tech, BU, or location. |
+| **GET** | `/analytics/flagship-programs` | YMP and Quantum Shift executive program participants and completion ratings. |
+| **GET** | `/analytics/learning-trends` | YoY, QoQ, and MoM training satisfaction growth percentages. |
+| **GET** | `/analytics/training-effectiveness` | Trainer and session CSAT rating distributions. |
+| **GET** | `/analytics/learning-champions` | Top learners and cloud session mentors badges. |
+| **GET** | `/analytics/project-investment` | Practice-level and BU training budget investments. |
+| **GET** | `/analytics/fresher-journey` | Campus hiring pipelines, freshers-to-project time-to-deployment indexes. |
+| **GET** | `/analytics/skill-gap` | Target capability versus current skills mapping templates. |
+
+---
+
+## 7. Login Credentials
+
+You can sign in to the portal using these local SSO credentials:
 
 | Profile | Email Address | Password | Role |
 | :--- | :--- | :--- | :---: |
-| **Learner** | `learner@xebia.com` | `learner123` | `learner` |
-| **Admin** | `admin@xebia.com` | `admin123` | `admin` |
-
----
-
-## 6. Backend Integration Instructions (For Spring Boot Team)
-
-### 6.1 API endpoints mapping
-Centralized fetching resides in `src/services/api.js`. The frontend expects endpoints to implement the following routes:
-
-#### Categories
-- `GET /categories` - Retrieve list of categories.
-- `GET /categories/slug/{slug}` - Retrieve category detail by its slug.
-- `POST /categories` - Create a new category.
-- `PUT /categories/{id}` - Update a category.
-- `DELETE /categories/{id}` - Delete a category.
-
-#### Courses
-- `GET /courses` - Retrieve courses. Query params: `search` (string), `categoryId` (string), `level` (string: `All` | `Beginner` | `Intermediate` | `Advanced`).
-- `GET /courses/slug/{slug}` - Retrieve course details by slug.
-- `POST /courses` - Create a new course.
-- `PUT /courses/{id}` - Update a course.
-- `DELETE /courses/{id}` - Delete a course.
-
-#### Modules
-- `GET /courses/{courseId}/modules` - Retrieve modules belonging to a course, ordered by `order` asc.
-- `POST /modules` - Create a new module.
-- `PUT /modules/{id}` - Update a module.
-- `DELETE /modules/{id}` - Delete a module.
-- `POST /courses/{courseId}/modules/reorder` - Reorder modules list. Payload: `{ orderedIds: [id1, id2, ...] }`.
-
-#### Submodules
-- `GET /modules/{moduleId}/submodules` - Retrieve submodules list.
-- `GET /courses/{courseSlug}/learn/{submoduleSlug}` - Retrieve submodule detail by course slug and submodule slug.
-- `POST /submodules` - Create a new submodule.
-- `PUT /submodules/{id}` - Update a submodule.
-- `DELETE /submodules/{id}` - Delete a submodule.
-- `POST /modules/{moduleId}/submodules/reorder` - Reorder submodules list. Payload: `{ orderedIds: [id1, id2, ...] }`.
-
-#### Contents
-- `GET /submodules/{submoduleId}/contents` - Retrieve content blocks list.
-- `POST /contents` - Create a new content block.
-- `PUT /contents/{id}` - Update a content block.
-- `DELETE /contents/{id}` - Delete a content block.
-- `POST /submodules/{submoduleId}/contents/reorder` - Reorder content blocks list. Payload: `{ orderedIds: [id1, id2, ...] }`.
-
-### 6.2 Switch from Mock API to Spring Boot API
-1. Start your Spring Boot backend on port `8080`.
-2. Configure `.env.local` parameters:
-   ```text
-   NEXT_PUBLIC_API_URL=http://localhost:8080/api
-   NEXT_PUBLIC_USE_MOCK_API=false
-   ```
-3. Restart the Next.js development server. The frontend will now call your API endpoints directly. If the server is offline or connection is refused, it will fallback to local mock mode and present a `"Demo Mode"` status pill.
-
----
-
-## 7. Build and Deployment
-
-### Production Build
-To create an optimized production build:
-```bash
-npm run build
-```
-
-### Start Server
-To spin up the compiled Next.js production build:
-```bash
-npm run start
-```
-
-### Deployment
-The frontend is ready for containerization or immediate hosting:
-- **Docker**: A standard node environment package using multi-stage builds.
-- **Hosting Platforms**: Compatible with Vercel, Netlify, AWS Amplify, or a Node.js container (ECS, Kubernetes).
+| **Learner Profile** | `learner@xebia.com` | `learner123` | `learner` |
+| **Admin Profile** | `admin@xebia.com` | `admin123` | `admin` |

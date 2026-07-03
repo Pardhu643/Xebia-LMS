@@ -190,7 +190,7 @@ export default function AdminAnalyticsPage() {
             {/* Visual simulation of chart bars using trendsData */}
             <div className="h-48 flex items-end justify-between gap-2 pt-4 px-2">
               {(trendsData?.sessionsConductedTrend || [45, 60, 55, 75, 90, 85, 105, 95, 110, 120, 115, 124]).map((h, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2 text-xs">
+                <div key={i} className="flex-1 h-full flex flex-col justify-end items-center gap-2 text-xs">
                   <div
                     className="w-full bg-primary hover:bg-accent transition-colors rounded-t-md"
                     style={{ height: `${(h / 130) * 100}%` }}
